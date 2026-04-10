@@ -1,0 +1,29 @@
+{
+  "name": "@flick/ui",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts,.tsx"
+  },
+  "dependencies": {
+    "@flick/types": "workspace:*",
+    "expo-image": "^2.0.1",
+    "@gorhom/bottom-sheet": "^5.1.4",
+    "react-native-reanimated": "~3.16.1",
+    "react-native-gesture-handler": "~2.20.2"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-native": "^0.73.0",
+    "react": "18.3.1",
+    "react-native": "0.76.5",
+    "typescript": "^5.6.3"
+  },
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*"
+  }
+}
