@@ -1,11 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Colors, Typography, Radius, Spacing } from '../tokens.js';
+import { Colors, Typography, Radius, Spacing } from '../tokens';
 
 interface RatingBadgeProps {
   rating: number;
   size?: 'sm' | 'md' | 'lg';
-  isUserRating?: boolean;
+  source?: 'tmdb' | 'flick' | 'user' | 'predicted';
 }
 
 function getRatingColor(rating: number): string {
@@ -15,76 +15,69 @@ function getRatingColor(rating: number): string {
   return Colors.rating.poor;
 }
 
-export function RatingBadge({ rating, size = 'md', isUserRating = false }: RatingBadgeProps) {
-  const color = isUserRating ? Colors.brand.primary : getRatingColor(rating);
-  const displayRating = rating.toFixed(1);
+export function RatingBadge({ rating, size = 'md', source = 'tmdb' }: RatingBadgeProps) {
+  const color = source === 'user' || source === 'predicted'
+    ? Colors.brand.primary
+    : getRatingColor(rating);
 
-  const containerStyle = [
-    styles.container,
-    size === 'sm' && styles.sm,
-    size === 'lg' && styles.lg,
-    { borderColor: color },
-  ];
-
-  const textStyle = [
-    styles.text,
-    size === 'sm' && styles.textSm,
-    size === 'lg' && styles.textLg,
-    { color },
-  ];
-
-  const labelStyle = [
-    styles.label,
-    size === 'sm' && styles.labelSm,
-    { color: Colors.text.tertiary },
-  ];
+  const formattedRating = rating.toFixed(1);
 
   return (
-    <View style={containerStyle}>
-      {isUserRating && (
-        <Text style={labelStyle}>YOU</Text>
+    <View style={[styles.container, styles[`container_${size}`], { borderColor: `${color}40` }]}>
+      <Text style={[styles.value, styles[`value_${size}`], { color }]}>
+        {formattedRating}
+      </Text>
+      {size !== 'sm' && (
+        <Text style={styles.sourceLabel}>
+          {source === 'tmdb' ? 'TMDb' : source === 'predicted' ? 'Predicted' : source === 'flick' ? 'Flick' : 'You'}
+        </Text>
       )}
-      <Text style={textStyle}>{displayRating}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: Spacing[2],
-    paddingVertical: 2,
+    justifyContent: 'center',
     borderRadius: Radius.sm,
     borderWidth: 1,
-    backgroundColor: Colors.background.elevated,
+    backgroundColor: Colors.background.surface,
   },
-  sm: {
-    paddingHorizontal: Spacing[1],
-    paddingVertical: 2,
+  container_sm: {
+    paddingHorizontal: Spacing[2],
+    paddingVertical: 3,
+    minWidth: 36,
   },
-  lg: {
+  container_md: {
     paddingHorizontal: Spacing[3],
+    paddingVertical: Spacing[1],
+    minWidth: 52,
+  },
+  container_lg: {
+    paddingHorizontal: Spacing[4],
     paddingVertical: Spacing[2],
+    minWidth: 72,
   },
-  text: {
-    fontFamily: Typography.family.bodyBold,
+  value: {
+    fontFamily: Typography.family.heading,
+    letterSpacing: -0.5,
+  },
+  value_sm: {
     fontSize: Typography.size.sm,
-    letterSpacing: Typography.tracking.tight,
   },
-  textSm: {
-    fontSize: Typography.size.xs,
+  value_md: {
+    fontSize: Typography.size.md,
   },
-  textLg: {
-    fontSize: Typography.size.lg,
+  value_lg: {
+    fontSize: Typography.size.xl,
   },
-  label: {
-    fontFamily: Typography.family.bodyBold,
-    fontSize: 8,
-    letterSpacing: Typography.tracking.wider,
-  },
-  labelSm: {
-    fontSize: 7,
+  sourceLabel: {
+    fontSize: 9,
+    fontFamily: Typography.family.bodyMedium,
+    color: Colors.text.tertiary,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginTop: 1,
   },
 });

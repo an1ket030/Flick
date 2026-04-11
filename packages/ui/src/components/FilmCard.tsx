@@ -1,141 +1,170 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ViewStyle } from 'react-native';
-import type { Film } from '@flick/types';
-import { Colors, Typography, Spacing, Radius, Shadows } from '../tokens.js';
-import { FilmPoster, FilmPosterSkeleton } from './FilmPoster.js';
-import { RatingBadge } from './RatingBadge.js';
-
-const POSTER_WIDTH = 72;
+import { TouchableOpacity, View, Text, StyleSheet, ViewStyle } from 'react-native';
+import { Image } from 'expo-image';
+import { Colors, Typography, Radius, Spacing, PosterRatio, posterUrl } from '../tokens';
+import { RatingBadge } from './RatingBadge';
 
 interface FilmCardProps {
-  film: Film;
+  tmdbId: number;
+  title: string;
+  year?: number;
+  posterPath: string | null;
+  rating?: number;
   onPress?: () => void;
-  onLongPress?: () => void;
   style?: ViewStyle;
-  showRating?: boolean;
-  userRating?: number | null;
-  statusColor?: string;
-  rightSlot?: React.ReactNode;
+  orientation?: 'vertical' | 'horizontal';
 }
 
 export function FilmCard({
-  film,
+  tmdbId,
+  title,
+  year,
+  posterPath,
+  rating,
   onPress,
-  onLongPress,
   style,
-  showRating = true,
-  userRating,
-  statusColor,
-  rightSlot,
+  orientation = 'vertical',
 }: FilmCardProps) {
+  const imageUrl = posterUrl(posterPath, 'w342');
+
+  if (orientation === 'horizontal') {
+    return (
+      <TouchableOpacity
+        onPress={onPress}
+        activeOpacity={0.8}
+        style={[styles.horizontal, style]}
+      >
+        <View style={styles.horizontalPoster}>
+          {imageUrl ? (
+            <Image
+              source={{ uri: imageUrl }}
+              style={StyleSheet.absoluteFill}
+              contentFit="cover"
+              transition={300}
+            />
+          ) : (
+            <View style={[StyleSheet.absoluteFill, styles.posterPlaceholder]}>
+              <Text style={styles.placeholderText}>{title.charAt(0)}</Text>
+            </View>
+          )}
+        </View>
+        <View style={styles.horizontalInfo}>
+          <Text style={styles.horizontalTitle} numberOfLines={2}>{title}</Text>
+          {year && <Text style={styles.horizontalYear}>{year}</Text>}
+          {rating !== undefined && (
+            <RatingBadge rating={rating} size="sm" />
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  }
+
+  // Vertical (default) — poster card used in horizontal scroll rows
   return (
     <TouchableOpacity
       onPress={onPress}
-      onLongPress={onLongPress}
-      activeOpacity={0.75}
-      style={[styles.container, style]}
+      activeOpacity={0.8}
+      style={[styles.vertical, style]}
     >
-      {/* Status bar on left edge */}
-      {statusColor && (
-        <View style={[styles.statusBar, { backgroundColor: statusColor }]} />
-      )}
-
-      <FilmPoster posterPath={film.poster_path} width={POSTER_WIDTH} />
-
-      <View style={styles.info}>
-        <Text style={styles.title} numberOfLines={2}>{film.title}</Text>
-
-        <Text style={styles.meta}>
-          {film.release_year ?? '—'}
-          {film.original_language && film.original_language !== 'en'
-            ? ` · ${film.original_language.toUpperCase()}`
-            : ''}
-          {film.runtime_minutes ? ` · ${film.runtime_minutes}m` : ''}
-        </Text>
-
-        {showRating && (
-          <View style={styles.ratings}>
-            {userRating != null && (
-              <RatingBadge rating={userRating} size="sm" isUserRating />
-            )}
-            {film.tmdb_rating != null && film.tmdb_rating > 0 && (
-              <RatingBadge rating={film.tmdb_rating} size="sm" />
-            )}
+      <View style={styles.posterContainer}>
+        {imageUrl ? (
+          <Image
+            source={{ uri: imageUrl }}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+            transition={300}
+          />
+        ) : (
+          <View style={[StyleSheet.absoluteFill, styles.posterPlaceholder]}>
+            <Text style={styles.placeholderText}>{title.charAt(0)}</Text>
+          </View>
+        )}
+        {rating !== undefined && (
+          <View style={styles.ratingOverlay}>
+            <RatingBadge rating={rating} size="sm" />
           </View>
         )}
       </View>
-
-      {rightSlot && <View style={styles.rightSlot}>{rightSlot}</View>}
+      <Text style={styles.verticalTitle} numberOfLines={2}>{title}</Text>
+      {year && <Text style={styles.verticalYear}>{year}</Text>}
     </TouchableOpacity>
   );
 }
 
-export function FilmCardSkeleton() {
-  return (
-    <View style={styles.skeleton}>
-      <FilmPosterSkeleton width={POSTER_WIDTH} />
-      <View style={styles.skeletonInfo}>
-        <View style={styles.skeletonTitle} />
-        <View style={styles.skeletonMeta} />
-        <View style={styles.skeletonRating} />
-      </View>
-    </View>
-  );
-}
+const POSTER_WIDTH = 120;
+const POSTER_HEIGHT = POSTER_WIDTH / PosterRatio;
 
 const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.background.surface,
-    borderRadius: Radius.lg,
-    padding: Spacing[3],
-    gap: Spacing[3],
-    ...Shadows.sm,
+  // ── Vertical Card ──
+  vertical: {
+    width: POSTER_WIDTH,
   },
-  statusBar: {
+  posterContainer: {
+    width: POSTER_WIDTH,
+    height: POSTER_HEIGHT,
+    borderRadius: Radius.lg,
+    overflow: 'hidden',
+    backgroundColor: Colors.background.surface,
+  },
+  posterPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.background.elevated,
+  },
+  placeholderText: {
+    fontSize: Typography.size['3xl'],
+    fontFamily: Typography.family.heading,
+    color: Colors.text.tertiary,
+  },
+  ratingOverlay: {
     position: 'absolute',
-    left: 0,
-    top: Radius.lg,
-    bottom: Radius.lg,
-    width: 3,
-    borderTopRightRadius: 2,
-    borderBottomRightRadius: 2,
+    bottom: Spacing[2],
+    right: Spacing[2],
   },
-  info: {
-    flex: 1,
-    gap: Spacing[1],
-  },
-  title: {
-    fontFamily: Typography.family.bodySemibold,
-    fontSize: Typography.size.base,
-    color: Colors.text.primary,
-    lineHeight: Typography.size.base * Typography.lineHeight.tight,
-  },
-  meta: {
-    fontFamily: Typography.family.body,
+  verticalTitle: {
+    marginTop: Spacing[2],
     fontSize: Typography.size.sm,
-    color: Colors.text.secondary,
+    fontFamily: Typography.family.bodyMedium,
+    color: Colors.text.primary,
+    lineHeight: 18,
   },
-  ratings: {
-    flexDirection: 'row',
-    gap: Spacing[2],
-    marginTop: Spacing[1],
+  verticalYear: {
+    marginTop: 2,
+    fontSize: Typography.size.xs,
+    fontFamily: Typography.family.body,
+    color: Colors.text.tertiary,
   },
-  rightSlot: {
-    alignItems: 'flex-end',
-  },
-  // Skeleton styles
-  skeleton: {
+
+  // ── Horizontal Card ──
+  horizontal: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.background.surface,
     borderRadius: Radius.lg,
-    padding: Spacing[3],
+    overflow: 'hidden',
     gap: Spacing[3],
+    padding: Spacing[3],
   },
-  skeletonInfo: { flex: 1, gap: Spacing[2] },
-  skeletonTitle: { height: 16, borderRadius: Radius.sm, backgroundColor: Colors.background.overlay, width: '80%' },
-  skeletonMeta: { height: 12, borderRadius: Radius.sm, backgroundColor: Colors.background.overlay, width: '50%' },
-  skeletonRating: { height: 20, borderRadius: Radius.sm, backgroundColor: Colors.background.overlay, width: 40 },
+  horizontalPoster: {
+    width: 56,
+    height: 84,
+    borderRadius: Radius.md,
+    overflow: 'hidden',
+    backgroundColor: Colors.background.elevated,
+  },
+  horizontalInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  horizontalTitle: {
+    fontSize: Typography.size.base,
+    fontFamily: Typography.family.bodySemibold,
+    color: Colors.text.primary,
+    lineHeight: 20,
+  },
+  horizontalYear: {
+    fontSize: Typography.size.sm,
+    fontFamily: Typography.family.body,
+    color: Colors.text.tertiary,
+  },
 });

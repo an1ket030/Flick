@@ -1,6 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, ViewStyle } from 'react-native';
-import { Colors, Typography, Spacing, Radius } from '../tokens.js';
+import { Colors, Typography, Radius, Spacing } from '../tokens';
 
 type GenreState = 'neutral' | 'love' | 'hate';
 
@@ -9,35 +9,28 @@ interface GenreChipProps {
   state?: GenreState;
   onPress?: () => void;
   style?: ViewStyle;
-  disabled?: boolean;
 }
 
-export function GenreChip({
-  label,
-  state = 'neutral',
-  onPress,
-  style,
-  disabled,
-}: GenreChipProps) {
+export function GenreChip({ label, state = 'neutral', onPress, style }: GenreChipProps) {
   return (
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={0.75}
-      disabled={disabled || !onPress}
+      disabled={!onPress}
       style={[
         styles.chip,
-        state === 'love' && styles.love,
-        state === 'hate' && styles.hate,
+        state === 'love' && styles.chipLove,
+        state === 'hate' && styles.chipHate,
         style,
       ]}
     >
-      {state === 'love' && <Text style={styles.stateIcon}>♥ </Text>}
-      {state === 'hate' && <Text style={[styles.stateIcon, styles.hateIcon]}>✕ </Text>}
+      {state === 'love' && <Text style={styles.icon}>+</Text>}
+      {state === 'hate' && <Text style={[styles.icon, styles.iconHate]}>−</Text>}
       <Text
         style={[
           styles.label,
-          state === 'love' && styles.loveLabel,
-          state === 'hate' && styles.hateLabel,
+          state === 'love' && styles.labelLove,
+          state === 'hate' && styles.labelHate,
         ]}
       >
         {label}
@@ -50,33 +43,42 @@ const styles = StyleSheet.create({
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Spacing[3],
     paddingVertical: Spacing[2],
-    borderRadius: Radius.full,
-    backgroundColor: Colors.genre.neutral,
+    paddingHorizontal: Spacing[3],
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.background.surface,
     borderWidth: 1,
     borderColor: Colors.background.overlay,
+    gap: 4,
   },
-  love: {
-    backgroundColor: 'rgba(245, 197, 24, 0.15)',
-    borderColor: Colors.genre.love,
+  chipLove: {
+    backgroundColor: Colors.brand.primary,
+    borderColor: Colors.brand.primary,
   },
-  hate: {
+  chipHate: {
     backgroundColor: Colors.genre.hate,
-    borderColor: '#4A1A1A',
+    borderColor: '#5A2020',
   },
-  stateIcon: {
-    fontSize: 10,
-    color: Colors.brand.primary,
+  icon: {
+    fontSize: 14,
+    color: Colors.text.inverse,
+    fontFamily: Typography.family.bodyBold,
+    lineHeight: 16,
   },
-  hateIcon: {
-    color: Colors.status.error,
+  iconHate: {
+    color: '#EF4444',
   },
   label: {
-    fontFamily: Typography.family.bodySemibold,
     fontSize: Typography.size.sm,
+    fontFamily: Typography.family.bodyMedium,
     color: Colors.text.secondary,
+    letterSpacing: 0.2,
   },
-  loveLabel: { color: Colors.brand.primary },
-  hateLabel: { color: Colors.status.error },
+  labelLove: {
+    color: Colors.text.inverse,
+    fontFamily: Typography.family.bodySemibold,
+  },
+  labelHate: {
+    color: '#EF4444',
+  },
 });

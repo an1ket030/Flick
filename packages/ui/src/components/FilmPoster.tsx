@@ -35,14 +35,16 @@ export function FilmPoster({
   }
 
   return (
-    <Image
-      source={{ uri: url }}
-      style={[{ width, height, borderRadius }, Shadows.sm, style]}
-      contentFit="cover"
-      priority={priority}
-      placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
-      transition={200}
-    />
+    <View style={[{ width, height, borderRadius, overflow: 'hidden' }, Shadows.sm, style]}>
+      <Image
+        source={{ uri: url }}
+        style={{ width, height }}
+        contentFit="cover"
+        priority={priority}
+        placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
+        transition={200}
+      />
+    </View>
   );
 }
 

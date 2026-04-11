@@ -1,31 +1,31 @@
 // ============================================================
-// Flick Design System Tokens
-// Implements the brand identity from PRD §4
+// Flick Design System Tokens — V2 "Vibrant Slate"
+// PRD §4 — Dark mode only at launch
 // ============================================================
 
 // ── Colour Palette ──────────────────────────────────────────
 export const Colors = {
-  // Brand Primary — cinematic gold
+  // Brand Primary — Vibrant Orange
   brand: {
-    primary:    '#F5C518',  // IMDb gold — primary CTA
-    primaryDim: '#C9A010',  // pressed / hover state
-    accent:     '#E8A020',  // warm amber — secondary highlight
+    primary:    '#FF6B2C',  // Vibrant Orange — primary CTA, active states
+    primaryDim: '#D95520',  // pressed / hover state
+    accent:     '#FF8C55',  // lighter orange — secondary highlight
   },
 
-  // Background Scale — deep cinema dark
+  // Background Scale — deep cinema black
   background: {
-    base:    '#0A0A0A',  // screen background
-    surface: '#141414',  // cards, sheets
-    elevated:'#1E1E1E',  // modals, dropdowns
-    overlay: '#2A2A2A',  // borders, subtle dividers
+    base:    '#121212',  // screen background
+    surface: '#1A1A1A',  // cards, sheets
+    elevated:'#242424',  // modals, dropdowns
+    overlay: '#2E2E2E',  // borders, subtle dividers
   },
 
   // Text Scale
   text: {
-    primary:   '#FFFFFF',   // headings, body on dark
-    secondary: '#A8A8A8',   // meta, captions
+    primary:   '#F0F0F0',   // headings, body on dark
+    secondary: '#A0A0A0',   // meta, captions
     tertiary:  '#606060',   // placeholders, disabled
-    inverse:   '#0A0A0A',   // text on light/gold backgrounds
+    inverse:   '#121212',   // text on orange/light backgrounds
   },
 
   // Status Colours
@@ -55,9 +55,9 @@ export const Colors = {
 
   // Genre Chip — love/hate
   genre: {
-    love: '#F5C518',
-    hate: '#3A1A1A',  // dark red tint
-    neutral: '#2A2A2A',
+    love:    '#FF6B2C',  // vibrant orange
+    hate:    '#3A1A1A',  // dark red tint
+    neutral: '#2E2E2E',
   },
 
   transparent: 'transparent',
@@ -65,14 +65,18 @@ export const Colors = {
 
 // ── Typography ───────────────────────────────────────────────
 export const Typography = {
-  // Font families (loaded via expo-google-fonts)
+  // Font families loaded via expo-google-fonts
+  // Headings: Plus Jakarta Sans (geometric, modern)
+  // Body/Labels: Be Vietnam Pro (clean, readable)
   family: {
-    heading: 'PlayfairDisplay_700Bold',
-    headingRegular: 'PlayfairDisplay_400Regular',
-    body:    'Inter_400Regular',
-    bodySemibold: 'Inter_600SemiBold',
-    bodyBold: 'Inter_700Bold',
-    mono:    'SpaceMono_400Regular',
+    heading:       'PlusJakartaSans_700Bold',
+    headingSemi:   'PlusJakartaSans_600SemiBold',
+    headingMedium: 'PlusJakartaSans_500Medium',
+    headingRegular:'PlusJakartaSans_400Regular',
+    body:          'BeVietnamPro_400Regular',
+    bodyMedium:    'BeVietnamPro_500Medium',
+    bodySemibold:  'BeVietnamPro_600SemiBold',
+    bodyBold:      'BeVietnamPro_700Bold',
   },
 
   // Font sizes (sp — scales with system)
@@ -86,6 +90,7 @@ export const Typography = {
     '2xl': 28,
     '3xl': 34,
     '4xl': 40,
+    '5xl': 48,
   },
 
   // Line heights
@@ -101,6 +106,7 @@ export const Typography = {
     normal: 0,
     wide:   0.5,
     wider:  1.5,
+    widest: 2.5,
   },
 } as const;
 
@@ -124,11 +130,11 @@ export const Spacing = {
 // ── Border Radius ────────────────────────────────────────────
 export const Radius = {
   none: 0,
-  sm:   4,
-  md:   8,
-  lg:   12,
-  xl:   16,
-  '2xl': 20,
+  sm:   6,
+  md:   10,
+  lg:   16,
+  xl:   20,
+  '2xl': 28,
   full: 9999,
 } as const;
 
@@ -136,24 +142,31 @@ export const Radius = {
 export const Shadows = {
   sm: {
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 3,
   },
   md: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOpacity: 0.45,
+    shadowRadius: 10,
+    elevation: 8,
   },
   lg: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5,
-    shadowRadius: 16,
-    elevation: 12,
+    shadowOpacity: 0.55,
+    shadowRadius: 20,
+    elevation: 14,
+  },
+  orange: {
+    shadowColor: '#FF6B2C',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
   },
 } as const;
 

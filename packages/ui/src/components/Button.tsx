@@ -1,35 +1,24 @@
 import React from 'react';
-import {
-  TouchableOpacity,
-  Text,
-  ActivityIndicator,
-  StyleSheet,
-  ViewStyle,
-  TextStyle,
-} from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
-import { Colors, Typography, Spacing, Radius } from '../tokens.js';
+import { TouchableOpacity, Text, ActivityIndicator, StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import { Colors, Typography, Radius, Spacing } from '../tokens';
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
-type Size = 'sm' | 'md' | 'lg';
+type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+type ButtonSize = 'sm' | 'md' | 'lg';
 
 interface ButtonProps {
-  label: string;
+  title: string;
   onPress: () => void;
-  variant?: Variant;
-  size?: Size;
+  variant?: ButtonVariant;
+  size?: ButtonSize;
   loading?: boolean;
   disabled?: boolean;
   fullWidth?: boolean;
   style?: ViewStyle;
   textStyle?: TextStyle;
-  icon?: React.ReactNode;
 }
 
-const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
-
 export function Button({
-  label,
+  title,
   onPress,
   variant = 'primary',
   size = 'md',
@@ -38,62 +27,41 @@ export function Button({
   fullWidth = false,
   style,
   textStyle,
-  icon,
 }: ButtonProps) {
-  const scale = useSharedValue(1);
-
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const handlePressIn = () => {
-    scale.value = withSpring(0.96, { damping: 15, stiffness: 300 });
-  };
-  const handlePressOut = () => {
-    scale.value = withSpring(1, { damping: 12, stiffness: 200 });
-  };
-
   const isDisabled = disabled || loading;
 
   return (
-    <AnimatedTouchable
+    <TouchableOpacity
       onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
       disabled={isDisabled}
-      activeOpacity={0.9}
+      activeOpacity={0.75}
       style={[
         styles.base,
-        styles[variant],
         styles[`size_${size}`],
+        styles[`variant_${variant}`],
         fullWidth && styles.fullWidth,
         isDisabled && styles.disabled,
-        animStyle,
         style,
       ]}
     >
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={variant === 'primary' ? Colors.text.inverse : Colors.text.primary}
+          color={variant === 'primary' ? Colors.text.inverse : Colors.brand.primary}
         />
       ) : (
-        <>
-          {icon}
-          <Text
-            style={[
-              styles.text,
-              styles[`text_${variant}`],
-              styles[`textSize_${size}`],
-              isDisabled && styles.textDisabled,
-              textStyle,
-            ]}
-          >
-            {label}
-          </Text>
-        </>
+        <Text
+          style={[
+            styles.label,
+            styles[`label_${size}`],
+            styles[`labelColor_${variant}`],
+            textStyle,
+          ]}
+        >
+          {title}
+        </Text>
       )}
-    </AnimatedTouchable>
+    </TouchableOpacity>
   );
 }
 
@@ -102,36 +70,77 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing[2],
-    borderRadius: Radius.lg,
+    borderRadius: Radius.full,
   },
-  fullWidth: { alignSelf: 'stretch' },
-  disabled: { opacity: 0.4 },
-
-  // Variants
-  primary: { backgroundColor: Colors.brand.primary },
-  secondary: { backgroundColor: Colors.background.elevated, borderWidth: 1, borderColor: Colors.background.overlay },
-  ghost: { backgroundColor: Colors.transparent },
-  danger: { backgroundColor: Colors.status.error },
+  fullWidth: {
+    width: '100%',
+  },
+  disabled: {
+    opacity: 0.45,
+  },
 
   // Sizes
-  size_sm: { paddingHorizontal: Spacing[3], paddingVertical: Spacing[2], minHeight: 36 },
-  size_md: { paddingHorizontal: Spacing[5], paddingVertical: Spacing[3], minHeight: 48 },
-  size_lg: { paddingHorizontal: Spacing[6], paddingVertical: Spacing[4], minHeight: 56 },
-
-  // Text base
-  text: {
-    fontFamily: Typography.family.bodyBold,
-    letterSpacing: Typography.tracking.wide,
+  size_sm: {
+    paddingVertical: Spacing[2],
+    paddingHorizontal: Spacing[4],
+    minHeight: 36,
   },
-  text_primary: { color: Colors.text.inverse },
-  text_secondary: { color: Colors.text.primary },
-  text_ghost: { color: Colors.brand.primary },
-  text_danger: { color: Colors.text.primary },
-  textDisabled: { opacity: 0.6 },
+  size_md: {
+    paddingVertical: Spacing[3],
+    paddingHorizontal: Spacing[6],
+    minHeight: 48,
+  },
+  size_lg: {
+    paddingVertical: Spacing[4],
+    paddingHorizontal: Spacing[8],
+    minHeight: 56,
+  },
 
-  // Text sizes
-  textSize_sm: { fontSize: Typography.size.sm },
-  textSize_md: { fontSize: Typography.size.base },
-  textSize_lg: { fontSize: Typography.size.md },
+  // Variants
+  variant_primary: {
+    backgroundColor: Colors.brand.primary,
+  },
+  variant_secondary: {
+    backgroundColor: Colors.background.surface,
+    borderWidth: 1.5,
+    borderColor: Colors.background.overlay,
+  },
+  variant_ghost: {
+    backgroundColor: Colors.transparent,
+  },
+  variant_danger: {
+    backgroundColor: 'rgba(239,68,68,0.15)',
+    borderWidth: 1.5,
+    borderColor: Colors.status.error,
+  },
+
+  // Label base
+  label: {
+    fontFamily: Typography.family.bodySemibold,
+    letterSpacing: 0.3,
+  },
+  label_sm: {
+    fontSize: Typography.size.sm,
+  },
+  label_md: {
+    fontSize: Typography.size.base,
+  },
+  label_lg: {
+    fontSize: Typography.size.md,
+  },
+
+  // Label colours by variant
+  labelColor_primary: {
+    color: Colors.text.inverse,
+    fontFamily: Typography.family.bodyBold,
+  },
+  labelColor_secondary: {
+    color: Colors.text.primary,
+  },
+  labelColor_ghost: {
+    color: Colors.brand.primary,
+  },
+  labelColor_danger: {
+    color: Colors.status.error,
+  },
 });
