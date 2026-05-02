@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
+import * as Linking from 'expo-linking';
 import { supabase } from '../../lib/supabase';
 import { Colors, Typography, Spacing, Radius } from '@flick/ui';
 
@@ -40,10 +41,11 @@ export default function SignupScreen() {
     if (!validate()) return;
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
+          emailRedirectTo: Linking.createURL('/'),
           data: {
             username: username.trim().toLowerCase(),
             display_name: displayName.trim(),
@@ -53,7 +55,11 @@ export default function SignupScreen() {
       if (error) {
         setErrors({ general: error.message });
       } else {
-        setSuccess(true);
+        if (data.session) {
+          // Automatic login triggered, the _layout listener will handle redirection
+        } else {
+          setSuccess(true);
+        }
       }
     } catch (err: any) {
       setErrors({ general: 'Something went wrong. Try again.' });
@@ -76,7 +82,7 @@ export default function SignupScreen() {
             {'\n\n'}Click it to activate your account and start using Flick.
           </Text>
           <TouchableOpacity
-            style={styles.primaryButton}
+            style={[styles.primaryButton, { alignSelf: 'stretch', marginTop: 24 }]}
             onPress={() => router.replace('/(auth)/login')}
             activeOpacity={0.85}
           >

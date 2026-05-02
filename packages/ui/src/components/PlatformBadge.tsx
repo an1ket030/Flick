@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
-import { Colors, Typography, Spacing, Radius } from '../tokens.js';
+import { Colors, Typography, Spacing, Radius } from '../tokens';
 
 const PLATFORM_COLORS: Record<string, string> = {
   'Netflix':        '#E50914',

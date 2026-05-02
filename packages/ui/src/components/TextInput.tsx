@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
-  View, Text, TextInput as RNTextInput,
-  StyleSheet, TouchableOpacity, ViewStyle,
+  View, Text, TextInput as RNTextInput, Animated,
+  StyleSheet, ViewStyle,
 } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
-import { Colors, Typography, Spacing, Radius } from '../tokens.js';
+import { Colors, Typography, Spacing, Radius } from '../tokens';
 
 interface TextInputProps {
   label?: string;
@@ -48,24 +47,18 @@ export function TextInput({
   rightSlot,
 }: TextInputProps) {
   const [focused, setFocused] = useState(false);
-  const borderAnim = useSharedValue(0);
 
-  const animBorder = useAnimatedStyle(() => ({
-    borderColor: withTiming(
-      error
-        ? Colors.status.error
-        : borderAnim.value === 1
-          ? Colors.brand.primary
-          : Colors.background.overlay,
-      { duration: 180 }
-    ),
-  }));
+  const borderColor = error
+    ? Colors.status.error
+    : focused
+      ? Colors.brand.primary
+      : Colors.background.overlay;
 
   return (
     <View style={[styles.wrapper, style]}>
       {label && <Text style={styles.label}>{label}</Text>}
 
-      <Animated.View style={[styles.inputContainer, animBorder]}>
+      <View style={[styles.inputContainer, { borderColor }]}>
         <RNTextInput
           value={value}
           onChangeText={onChangeText}
@@ -86,18 +79,12 @@ export function TextInput({
             !editable && styles.inputDisabled,
             multiline && styles.inputMultiline,
           ]}
-          onFocus={() => {
-            setFocused(true);
-            borderAnim.value = 1;
-          }}
-          onBlur={() => {
-            setFocused(false);
-            borderAnim.value = 0;
-          }}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           selectionColor={Colors.brand.primary}
         />
         {rightSlot && <View style={styles.rightSlot}>{rightSlot}</View>}
-      </Animated.View>
+      </View>
 
       {(error || helper) && (
         <Text style={[styles.helper, error && styles.helperError]}>

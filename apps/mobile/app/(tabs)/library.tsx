@@ -14,6 +14,8 @@ import { router } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/auth';
 import { Colors, Typography, Spacing, Radius, posterUrl } from '@flick/ui';
+import LibraryEntrySheet from '../../components/LibraryEntrySheet';
+import { TextInput } from 'react-native-gesture-handler'; // or react-native
 
 type LibraryStatus = 'all' | 'planned' | 'watching' | 'watched' | 'paused' | 'dropped';
 
@@ -44,7 +46,7 @@ interface LibraryEntry {
     tmdb_id: number;
     title: string;
     release_year: number;
-    poster_url: string | null;
+    poster_path: string | null;
     tmdb_rating: number;
   };
 }
@@ -63,6 +65,12 @@ export default function LibraryScreen() {
   const [stats, setStats] = useState<LibraryStats>({ total: 0, watched: 0, planned: 0, avgRating: null });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Stream 4 additions
+  const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [sortBy, setSortBy] = useState<'date' | 'rating' | 'title'>('date');
+  const [selectedFilm, setSelectedFilm] = useState<LibraryEntry['films'] | null>(null);
 
   const fetchLibrary = useCallback(async () => {
     if (!session?.user?.id) return;
@@ -71,7 +79,7 @@ export default function LibraryScreen() {
         .from('user_film_entries')
         .select(`
           id, status, rating, date_watched,
-          films (id, tmdb_id, title, release_year, poster_url, tmdb_rating)
+          films (id, tmdb_id, title, release_year, poster_path, tmdb_rating)
         `)
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: false });
@@ -116,6 +124,22 @@ export default function LibraryScreen() {
     fetchLibrary();
   }, [fetchLibrary]);
 
+  const filteredEntries = entries
+    .filter(e => {
+      if (!searchQuery) return true;
+      return e.films.title.toLowerCase().includes(searchQuery.toLowerCase());
+    })
+    .sort((a, b) => {
+      if (sortBy === 'rating') {
+        return (b.rating || 0) - (a.rating || 0);
+      }
+      if (sortBy === 'title') {
+        return a.films.title.localeCompare(b.films.title);
+      }
+      // date desc
+      return new Date(b.date_watched || 0).getTime() - new Date(a.date_watched || 0).getTime();
+    });
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchLibrary();
@@ -123,18 +147,19 @@ export default function LibraryScreen() {
 
   const renderEntry = ({ item }: { item: LibraryEntry }) => {
     const film = item.films;
-    const imageUrl = film.poster_url?.startsWith('/')
-      ? posterUrl(film.poster_url, 'w185')
+    const imageUrl = film.poster_path?.startsWith('/')
+      ? posterUrl(film.poster_path, 'w185')
       : null;
 
     return (
       <TouchableOpacity
-        style={styles.entryRow}
+        style={viewMode === 'grid' ? styles.gridItem : styles.entryRow}
         onPress={() => router.push(`/film/${film.tmdb_id}`)}
+        onLongPress={() => setSelectedFilm(film)}
         activeOpacity={0.8}
       >
         {/* Poster */}
-        <View style={styles.entryPoster}>
+        <View style={viewMode === 'grid' ? styles.gridPoster : styles.entryPoster}>
           {imageUrl ? (
             <Image source={{ uri: imageUrl }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} />
           ) : (
@@ -147,20 +172,27 @@ export default function LibraryScreen() {
         </View>
 
         {/* Info */}
-        <View style={styles.entryInfo}>
-          <Text style={styles.entryTitle} numberOfLines={2}>{film.title}</Text>
-          <Text style={styles.entryYear}>{film.release_year}</Text>
-          <View style={styles.entryMeta}>
-            <View style={[styles.statusPill, { borderColor: STATUS_COLORS[item.status] || Colors.text.tertiary }]}>
-              <Text style={[styles.statusPillText, { color: STATUS_COLORS[item.status] || Colors.text.tertiary }]}>
-                {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-              </Text>
+        {viewMode === 'list' && (
+          <View style={styles.entryInfo}>
+            <Text style={styles.entryTitle} numberOfLines={2}>{film.title}</Text>
+            <Text style={styles.entryYear}>{film.release_year}</Text>
+            <View style={styles.entryMeta}>
+              <View style={[styles.statusPill, { borderColor: STATUS_COLORS[item.status] || Colors.text.tertiary }]}>
+                <Text style={[styles.statusPillText, { color: STATUS_COLORS[item.status] || Colors.text.tertiary }]}>
+                  {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+                </Text>
+              </View>
+              {item.rating && (
+                <Text style={styles.userRating}>{item.rating.toFixed(1)}</Text>
+              )}
             </View>
-            {item.rating && (
-              <Text style={styles.userRating}>{item.rating.toFixed(1)}</Text>
-            )}
           </View>
-        </View>
+        )}
+        {viewMode === 'list' && (
+          <TouchableOpacity style={styles.moreBtn} onPress={() => setSelectedFilm(film)}>
+            <Text style={styles.moreBtnText}>⋮</Text>
+          </TouchableOpacity>
+        )}
       </TouchableOpacity>
     );
   };
@@ -169,7 +201,17 @@ export default function LibraryScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.screenTitle}>Library</Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.screenTitle}>Library</Text>
+          <View style={{ flexDirection: 'row', gap: Spacing[4] }}>
+            <TouchableOpacity onPress={() => router.push('/library/vault')} activeOpacity={0.7}>
+              <Text style={styles.importLink}>Vault</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/settings/import')} activeOpacity={0.7}>
+              <Text style={styles.importLink}>Import</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
 
         {/* Stats row */}
         <View style={styles.statsRow}>
@@ -192,8 +234,25 @@ export default function LibraryScreen() {
             <Text style={[styles.statValue, { color: Colors.brand.primary }]}>
               {stats.avgRating ? stats.avgRating.toFixed(1) : '—'}
             </Text>
-            <Text style={styles.statLabel}>Avg rating</Text>
+            <Text style={styles.statLabel}>Avg</Text>
           </View>
+        </View>
+
+        {/* Tools row: Search + Controls */}
+        <View style={styles.toolsRow}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search your library..."
+            placeholderTextColor={Colors.text.tertiary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          <TouchableOpacity style={styles.toolBtn} onPress={() => setViewMode(viewMode === 'list' ? 'grid' : 'list')}>
+            <Text style={styles.toolBtnText}>{viewMode === 'list' ? '⊞' : '≡'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.toolBtn} onPress={() => setSortBy(sortBy === 'date' ? 'rating' : sortBy === 'rating' ? 'title' : 'date')}>
+            <Text style={styles.toolBtnText}>{sortBy === 'date' ? '📅' : sortBy === 'rating' ? '⭐' : '🔤'}</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -223,23 +282,25 @@ export default function LibraryScreen() {
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={Colors.brand.primary} />
         </View>
-      ) : entries.length === 0 ? (
+      ) : filteredEntries.length === 0 ? (
         <View style={styles.centered}>
           <Text style={styles.emptyTitle}>
-            {statusFilter === 'all' ? 'Your library is empty.' : `No ${statusFilter} films.`}
+            {searchQuery ? 'No match found.' : statusFilter === 'all' ? 'Your library is empty.' : `No ${statusFilter} films.`}
           </Text>
           <Text style={styles.emptySubtitle}>
-            {statusFilter === 'all'
+            {searchQuery ? 'Try another search term.' : statusFilter === 'all'
               ? 'Search for a film and add it to get started.'
               : `Films you mark as "${statusFilter}" will appear here.`}
           </Text>
         </View>
       ) : (
         <FlatList
-          data={entries}
+          key={viewMode}
+          data={filteredEntries}
           keyExtractor={(item) => item.id}
           renderItem={renderEntry}
-          contentContainerStyle={styles.list}
+          numColumns={viewMode === 'grid' ? 3 : 1}
+          contentContainerStyle={[styles.list, viewMode === 'grid' && styles.gridList]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -249,7 +310,18 @@ export default function LibraryScreen() {
               colors={[Colors.brand.primary]}
             />
           }
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          ItemSeparatorComponent={() => viewMode === 'list' ? <View style={styles.separator} /> : null}
+        />
+      )}
+
+      {selectedFilm && (
+        <LibraryEntrySheet 
+          film={selectedFilm} 
+          onClose={() => setSelectedFilm(null)} 
+          onSaved={() => {
+            setSelectedFilm(null);
+            fetchLibrary();
+          }}
         />
       )}
     </View>
@@ -271,7 +343,18 @@ const styles = StyleSheet.create({
     fontFamily: Typography.family.heading,
     color: Colors.text.primary,
     letterSpacing: -1,
-    marginBottom: Spacing[5],
+  },
+  importLink: {
+    fontSize: Typography.size.sm,
+    fontFamily: Typography.family.bodySemibold,
+    color: Colors.brand.primary,
+    paddingVertical: Spacing[2],
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing[4],
   },
   statsRow: {
     flexDirection: 'row',
@@ -302,6 +385,38 @@ const styles = StyleSheet.create({
     width: 1,
     height: 32,
     backgroundColor: Colors.background.overlay,
+  },
+  toolsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing[2],
+    marginTop: Spacing[4],
+  },
+  searchInput: {
+    flex: 1,
+    height: 40,
+    backgroundColor: Colors.background.surface,
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing[4],
+    color: Colors.text.primary,
+    fontFamily: Typography.family.body,
+    fontSize: Typography.size.sm,
+    borderWidth: 1,
+    borderColor: Colors.background.overlay,
+  },
+  toolBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.background.surface,
+    borderWidth: 1,
+    borderColor: Colors.background.overlay,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toolBtnText: {
+    fontSize: 14,
+    color: Colors.text.secondary,
   },
 
   // ── Tabs ──
@@ -336,14 +451,23 @@ const styles = StyleSheet.create({
   // ── Entries ──
   list: {
     paddingHorizontal: Spacing[6],
-    paddingTop: Spacing[4],
+    paddingTop: Spacing[3],
     paddingBottom: Spacing[8],
+  },
+  gridList: {
+    paddingHorizontal: Spacing[4],
   },
   entryRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing[4],
     paddingVertical: Spacing[3],
+  },
+  gridItem: {
+    flex: 1,
+    paddingHorizontal: Spacing[2],
+    marginBottom: Spacing[4],
+    alignItems: 'center',
   },
   entryPoster: {
     width: 52,
@@ -352,6 +476,14 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: Colors.background.surface,
     flexShrink: 0,
+    position: 'relative',
+  },
+  gridPoster: {
+    width: '100%',
+    aspectRatio: 2/3,
+    borderRadius: Radius.md,
+    overflow: 'hidden',
+    backgroundColor: Colors.background.surface,
     position: 'relative',
   },
   posterFallback: {
@@ -406,6 +538,15 @@ const styles = StyleSheet.create({
     fontSize: Typography.size.sm,
     fontFamily: Typography.family.heading,
     color: Colors.brand.primary,
+  },
+  moreBtn: {
+    paddingHorizontal: Spacing[3],
+    paddingVertical: Spacing[2],
+  },
+  moreBtnText: {
+    fontSize: Typography.size.lg,
+    color: Colors.text.tertiary,
+    fontFamily: Typography.family.heading,
   },
 
   separator: {

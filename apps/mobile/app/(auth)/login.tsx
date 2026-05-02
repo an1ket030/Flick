@@ -9,7 +9,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { router } from 'expo-router';
 import { supabase } from '../../lib/supabase';
@@ -107,7 +106,7 @@ export default function LoginScreen() {
           </View>
 
           <TouchableOpacity
-            onPress={() => Alert.alert('Coming soon', 'Password reset via email — coming in the next update.')}
+            onPress={() => router.push('/(auth)/forgot-password')}
             style={styles.forgotLink}
             activeOpacity={0.7}
           >

@@ -2,6 +2,9 @@ import { Tabs, Redirect } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { useAuthStore } from '../../stores/auth';
 import { Colors } from '@flick/ui';
+import { useEffect } from 'react';
+import { registerForPushNotificationsAsync, sendTokenToBackend, setupNotificationHandler } from '../../lib/notifications';
+import { Home, Compass, Search, Library, User } from 'lucide-react-native';
 
 // Inline SVG-path icon components using simple shapes instead of requiring icon library
 // Using text-based tab icons for now — will upgrade to Lucide in full implementation
@@ -16,6 +19,19 @@ function HomeIcon({ color }: { color: string }) {
 
 export default function TabsLayout() {
   const { session, isLoading } = useAuthStore();
+  
+  useEffect(() => {
+    setupNotificationHandler();
+    if (!session) return;
+    
+    // Register Push Notification FCM Token securely with the backend
+    registerForPushNotificationsAsync().then(token => {
+      if (token && session?.access_token) {
+        sendTokenToBackend(token, session.access_token);
+      }
+    });
+  }, [session]);
+
   if (isLoading) return null;
   if (!session) return <Redirect href="/(auth)/welcome" />;
 
@@ -37,7 +53,7 @@ export default function TabsLayout() {
           title: 'Home',
           tabBarIcon: ({ color, focused }) => (
             <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
-              <View style={[styles.iconDot, { backgroundColor: color }]} />
+              <Home color={color} size={20} strokeWidth={focused ? 2.5 : 2} />
             </View>
           ),
         }}
@@ -48,7 +64,7 @@ export default function TabsLayout() {
           title: 'Explore',
           tabBarIcon: ({ color, focused }) => (
             <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
-              <View style={[styles.iconDot, { backgroundColor: color }]} />
+              <Compass color={color} size={20} strokeWidth={focused ? 2.5 : 2} />
             </View>
           ),
         }}
@@ -59,7 +75,7 @@ export default function TabsLayout() {
           title: 'Search',
           tabBarIcon: ({ color, focused }) => (
             <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
-              <View style={[styles.iconDot, { backgroundColor: color }]} />
+              <Search color={color} size={20} strokeWidth={focused ? 2.5 : 2} />
             </View>
           ),
         }}
@@ -70,7 +86,7 @@ export default function TabsLayout() {
           title: 'Library',
           tabBarIcon: ({ color, focused }) => (
             <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
-              <View style={[styles.iconDot, { backgroundColor: color }]} />
+              <Library color={color} size={20} strokeWidth={focused ? 2.5 : 2} />
             </View>
           ),
         }}
@@ -81,7 +97,7 @@ export default function TabsLayout() {
           title: 'Profile',
           tabBarIcon: ({ color, focused }) => (
             <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
-              <View style={[styles.iconDot, { backgroundColor: color }]} />
+              <User color={color} size={20} strokeWidth={focused ? 2.5 : 2} />
             </View>
           ),
         }}

@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
-import { Colors, Radius, Shadows, PosterRatio, posterUrl } from '../tokens.js';
-import { SkeletonLoader } from './SkeletonLoader.js';
+import { Colors, Radius, Shadows, PosterRatio, posterUrl } from '../tokens';
+import { SkeletonLoader } from './SkeletonLoader';
 
 interface FilmPosterProps {
   posterPath: string | null;

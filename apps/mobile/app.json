@@ -3,6 +3,7 @@
     "name": "Flick",
     "slug": "flick",
     "version": "1.0.0",
+    "sdkVersion": "54.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -41,12 +42,16 @@
           "image": "./assets/splash.png",
           "resizeMode": "contain"
         }
-      ]
+      ],
+      "@sentry/react-native",
+      "expo-secure-store",
+      "expo-web-browser"
     ],
     "scheme": "flick",
     "experiments": {
       "typedRoutes": true
     },
+    "newArchEnabled": true,
     "extra": {
       "router": {
         "origin": false

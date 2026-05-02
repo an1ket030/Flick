@@ -6,6 +6,13 @@ import { env } from './config.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import healthRouter from './routes/health.js';
 import filmsRouter from './routes/films.js';
+import recommendationsRouter from './routes/recommendations.js';
+import libraryRouter from './routes/library.js';
+import aiRouter from './routes/ai.js';
+import profileRouter from './routes/profile.js';
+import notificationsRouter from './routes/notifications.js';
+import socialRouter from './routes/social.js';
+import { initializeFirebase } from './services/firebase.js';
 
 // ============================================================
 // Initialise Sentry (must be before anything else)
@@ -20,6 +27,9 @@ Sentry.init({
 // Create Express app
 // ============================================================
 const app = express();
+
+// Initialize Firebase Admin (FCM)
+initializeFirebase();
 
 // ============================================================
 // Security & Parsing Middleware
@@ -47,6 +57,12 @@ app.get('/', (_req, res) => {
 
 app.use('/health', healthRouter);
 app.use('/api/films', filmsRouter);
+app.use('/api/recommendations', recommendationsRouter);
+app.use('/api/library', libraryRouter);
+app.use('/api/ai', aiRouter);
+app.use('/api/profile', profileRouter);
+app.use('/api/notifications', notificationsRouter);
+app.use('/api/social', socialRouter);
 
 // ============================================================
 // Error handling (must be last)

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { supabaseAdmin } from '../lib/supabase.js';
 import { withCache, CacheKeys, CacheTTL } from '../lib/redis.js';
 import { requireAuth, type AuthRequest } from '../middleware/auth.js';
+import { generateCommentary } from '../services/gemini.js';
 
 const router = Router();
 
@@ -146,6 +147,83 @@ router.get('/:id/similar', requireAuth, async (req: AuthRequest, res, next) => {
       .limit(12);
 
     res.json({ data: similar ?? [], error: null });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ============================================================
+// GET /api/films/:id/commentary?type=pre|post
+// Sprint 3.4: Director's Commentary
+// ============================================================
+router.get('/:id/commentary', requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user!.id;
+    const type = req.query.type as 'pre' | 'post';
+
+    if (type !== 'pre' && type !== 'post') {
+      res.status(400).json({ error: { message: 'Invalid type parameter. Must be "pre" or "post"' } });
+      return;
+    }
+
+    // If Post-watch, enforce lock
+    if (type === 'post') {
+      const { data: entry } = await supabaseAdmin
+        .from('user_film_entries')
+        .select('status')
+        .eq('user_id', userId)
+        .eq('film_id', id)
+        .maybeSingle();
+      
+      if (!entry || entry.status !== 'watched') {
+        res.status(403).json({ error: { message: 'Post-watch commentary is locked until you log this film as watched.' } });
+        return;
+      }
+    }
+
+    // Check Cache
+    const { data: cache } = await supabaseAdmin
+      .from('commentary_cache')
+      .select('pre_watch, post_watch')
+      .eq('film_id', id)
+      .maybeSingle();
+
+    if (cache) {
+      if (type === 'pre' && cache.pre_watch) {
+        res.json({ data: { text: cache.pre_watch, type, cached: true } });
+        return;
+      }
+      if (type === 'post' && cache.post_watch) {
+        res.json({ data: { text: cache.post_watch, type, cached: true } });
+        return;
+      }
+    }
+
+    // Generate
+    const { data: film } = await supabaseAdmin
+      .from('films')
+      .select('title, synopsis')
+      .eq('id', id)
+      .single();
+
+    if (!film) {
+      res.status(404).json({ error: { message: 'Film not found' } });
+      return;
+    }
+
+    const commentary = await generateCommentary(film.title, film.synopsis, type);
+
+    // Save to Cache
+    const payload = type === 'pre' 
+      ? { pre_watch: commentary } 
+      : { post_watch: commentary };
+
+    await supabaseAdmin
+      .from('commentary_cache')
+      .upsert({ film_id: id, ...payload }, { onConflict: 'film_id' });
+
+    res.json({ data: { text: commentary, type, cached: false } });
   } catch (err) {
     next(err);
   }

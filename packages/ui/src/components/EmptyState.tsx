@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
-import { Colors, Typography, Spacing } from '../tokens.js';
-import { Button } from './Button.js';
+import { Colors, Typography, Spacing } from '../tokens';
+import { Button } from './Button';
 
 interface EmptyStateProps {
   title: string;

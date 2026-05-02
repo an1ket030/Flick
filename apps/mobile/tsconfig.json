@@ -9,10 +9,22 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "paths": {
-      "@flick/ui": ["../../packages/ui/src/index.ts"],
-      "@flick/types": ["../../packages/types/src/index.ts"]
+      "@flick/ui": [
+        "../../packages/ui/src/index.ts"
+      ],
+      "@flick/types": [
+        "../../packages/types/src/index.ts"
+      ]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.d.ts", "expo-env.d.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.d.ts",
+    "expo-env.d.ts",
+    ".expo/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }

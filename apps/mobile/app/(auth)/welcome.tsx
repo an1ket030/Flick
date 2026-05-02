@@ -7,34 +7,101 @@ import {
   TouchableOpacity,
   Animated,
   StatusBar,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
+import * as WebBrowser from 'expo-web-browser';
+import { makeRedirectUri } from 'expo-linking';
+import { supabase } from '../../lib/supabase';
 import { Colors, Typography, Spacing, Radius } from '@flick/ui';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// Curated real movie posters arranged in a collage background
+// Required for Expo WebBrowser to handle redirects properly
+WebBrowser.maybeCompleteAuthSession();
+
 const POSTER_GRID = [
-  'https://image.tmdb.org/t/p/w342/q6y0Go1tsGEsmtFryDOJo3dEmqu.jpg', // The Shawshank Redemption
-  'https://image.tmdb.org/t/p/w342/3bhkrj58Vtu7enYsLeSHO7LKXW1.jpg', // The Godfather
-  'https://image.tmdb.org/t/p/w342/8UlWHLMpgZm9bx6QYh0NFoq67TZ.jpg', // Oppenheimer
-  'https://image.tmdb.org/t/p/w342/rAiYTfKGqDCRIIqo664sY9XZIvQ.jpg', // Interstellar
-  'https://image.tmdb.org/t/p/w342/vBNbFU3OS6okJIQANOWYqqSr4xm.jpg', // Parasite
-  'https://image.tmdb.org/t/p/w342/b0PlSFdDwbyK0cf5RxwDpaOJQvQ.jpg', // Dune Part Two
-  'https://image.tmdb.org/t/p/w342/qjA0jnltMS738VEeQUm8Kzm1QDm.jpg', // Blade Runner 2049
-  'https://image.tmdb.org/t/p/w342/sgxzT54GnvgeMnOZgpQQx9csAdd.jpg', // Whiplash
-  'https://image.tmdb.org/t/p/w342/arw2vcBveWOVZr6pxd9XTd1TdQa.jpg', // Fight Club
-  'https://image.tmdb.org/t/p/w342/iuFNMS8vlEpbNtl5hkuxE0anY6U.jpg', // Goodfellas
-  'https://image.tmdb.org/t/p/w342/f89U3ADr1oiB1s9GkdPOEpXUk5H.jpg', // The Dark Knight
-  'https://image.tmdb.org/t/p/w342/pIkRyD18kl4FhoCNQuWxWu5cBLM.jpg', // Joker
+  'https://image.tmdb.org/t/p/w342/eTp7gSPkSF3Aw79mNx1NkBP1PZT.jpg',
+  'https://image.tmdb.org/t/p/w342/eJGWx219ZcEMVQJhAgMiqo8tYY.jpg',
+  'https://image.tmdb.org/t/p/w342/mjkS2iAgWj3ik1DTjvI15nHZ7yl.jpg',
+  'https://image.tmdb.org/t/p/w342/7wIBfBl2gejt6xHxNSK0reVIm7E.jpg',
+  'https://image.tmdb.org/t/p/w342/3Qud19bBUrrJAzy0Ilm8gRJlJXP.jpg',
+  'https://image.tmdb.org/t/p/w342/29Jdsak3SrwGds5k1t43kH6Khed.jpg',
+  'https://image.tmdb.org/t/p/w342/aabwWZWx6z1aYP4PX2ADvbDKktd.jpg',
+  'https://image.tmdb.org/t/p/w342/ygWXPL0RS91JyJPNOfK34eV3bRE.jpg',
+  'https://image.tmdb.org/t/p/w342/yihdXomYb5kTeSivtFndMy5iDmf.jpg',
+  'https://image.tmdb.org/t/p/w342/xjtWQ2CL1mpmMNwuU5HeS4Iuwuu.jpg',
+  'https://image.tmdb.org/t/p/w342/uLXxpWRfoIPfB2fwM8hsAMIjSWf.jpg',
+  'https://image.tmdb.org/t/p/w342/buPFnHZ3xQy6vZEHxbHgL1Pc6CR.jpg',
+  'https://image.tmdb.org/t/p/w342/wfuqMlaExcoYiUEvKfVpUTt1v4u.jpg',
+  'https://image.tmdb.org/t/p/w342/tVvpFIoteRHNnoZMhdnwIVwJpCA.jpg',
+  'https://image.tmdb.org/t/p/w342/72AoFPC5TY4DfJwXXS9rPwPeReD.jpg',
+  'https://image.tmdb.org/t/p/w342/fWVSwgjpT2D78VUh6X8UBd2rorW.jpg',
+  'https://image.tmdb.org/t/p/w342/6oI4oQKTWMVUlr8Ivqydp28Ruu6.jpg',
+  'https://image.tmdb.org/t/p/w342/3OyQTl0IGkbnjDxd3MhztfPE34g.jpg',
+  'https://image.tmdb.org/t/p/w342/2H1TmgdfNtsVKq9k1vh15WqTsD1.jpg',
+  'https://image.tmdb.org/t/p/w342/A4j8S6moRN2oo9mNNbiHLiMbK21.jpg',
+  'https://image.tmdb.org/t/p/w342/nCbkMgexW07a781xM2qjPqjI485.jpg',
+  'https://image.tmdb.org/t/p/w342/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg',
+  'https://image.tmdb.org/t/p/w342/57m3B8qHn7D7xG2PXX7Dq3G2r.jpg',
+  'https://image.tmdb.org/t/p/w342/k8Q9ilyMUaTowDeCRZgGjL85h.jpg'
 ];
 
 export default function WelcomeScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(40)).current;
   const logoScale = useRef(new Animated.Value(0.85)).current;
+  const [googleLoading, setGoogleLoading] = React.useState(false);
+
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    try {
+      const redirectTo = Linking.createURL('/');
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true,
+        },
+      });
+      if (error) { Alert.alert('Error', error.message); return; }
+      if (data.url) {
+        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+        if (result.type === 'success' && result.url) {
+          // Supabase returns tokens in the URL fragment (#access_token=...)
+          // Expo Linking.parse doesn't parse fragments, so we extract manually
+          const url = result.url;
+          const fragmentIndex = url.indexOf('#');
+          const fragment = fragmentIndex >= 0 ? url.substring(fragmentIndex + 1) : '';
+          const params: Record<string, string> = {};
+          fragment.split('&').forEach(part => {
+            const [key, val] = part.split('=');
+            if (key && val) params[decodeURIComponent(key)] = decodeURIComponent(val);
+          });
+
+          const accessToken = params['access_token'];
+          const refreshToken = params['refresh_token'];
+
+          if (accessToken && refreshToken) {
+            await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+          } else {
+            // Fallback: let supabase detect session from URL
+            await supabase.auth.getSession();
+          }
+        } else if (result.type === 'cancel') {
+          // User dismissed — silent fail
+        }
+      }
+    } catch (err: any) {
+      console.error('Google sign-in error:', err);
+      Alert.alert('Sign-in failed', `Could not complete Google sign-in. Error: ${err?.message || 'Unknown error'}`);
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   useEffect(() => {
     Animated.parallel([
@@ -77,7 +144,7 @@ export default function WelcomeScreen() {
                 styles.posterCell,
                 {
                   left: col * (SCREEN_WIDTH / 3),
-                  top: row * (SCREEN_HEIGHT / 4),
+                  top: row * (POSTER_SIZE * 1.5 - 15) - 10,
                   transform: [{ rotate: `${(index % 2 === 0 ? 1 : -1) * 2}deg` }],
                 },
               ]}
@@ -137,6 +204,27 @@ export default function WelcomeScreen() {
             activeOpacity={0.75}
           >
             <Text style={styles.secondaryButtonText}>I already have an account</Text>
+          </TouchableOpacity>
+
+          {/* Divider */}
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Google OAuth */}
+          <TouchableOpacity
+            style={styles.googleButton}
+            onPress={handleGoogleSignIn}
+            disabled={googleLoading}
+            activeOpacity={0.85}
+          >
+            {googleLoading ? (
+              <ActivityIndicator color={Colors.text.primary} size="small" />
+            ) : (
+              <Text style={styles.googleButtonText}>Continue with Google</Text>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -249,6 +337,37 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(240,240,240,0.12)',
   },
   secondaryButtonText: {
+    fontSize: Typography.size.base,
+    fontFamily: Typography.family.bodyMedium,
+    color: Colors.text.primary,
+    letterSpacing: 0.2,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing[3],
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  dividerText: {
+    fontSize: Typography.size.sm,
+    fontFamily: Typography.family.body,
+    color: Colors.text.tertiary,
+  },
+  googleButton: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: Radius.full,
+    paddingVertical: Spacing[4],
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    minHeight: 52,
+  },
+  googleButtonText: {
     fontSize: Typography.size.base,
     fontFamily: Typography.family.bodyMedium,
     color: Colors.text.primary,

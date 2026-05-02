@@ -17,6 +17,13 @@ import { useAuthStore } from '../../stores/auth';
 import { Colors, Typography, Spacing, Radius, backdropUrl, posterUrl, profileUrl } from '@flick/ui';
 import { RatingBadge } from '@flick/ui';
 import { GenreChip } from '@flick/ui';
+import RatingPicker from '../../components/RatingPicker';
+import ConvinceMeCard from '../../components/ConvinceMeCard';
+
+const MOCK_STREAMING = [
+  { id: 1, name: 'Netflix', logo: 'https://image.tmdb.org/t/p/w92/t2yyOv40HZeVlLjVrCsPhnqZFlI.jpg' },
+  { id: 2, name: 'MUBI', logo: 'https://image.tmdb.org/t/p/w92/bTR1XhaOebx0R3T3U0BwA74cKnj.jpg' }
+];
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const BACKDROP_HEIGHT = SCREEN_HEIGHT * 0.45;
@@ -49,12 +56,13 @@ interface FilmDetail {
   original_language: string | null;
   synopsis: string | null;
   tagline: string | null;
-  poster_url: string | null;
-  backdrop_url: string | null;
+  poster_path: string | null;
+  backdrop_path: string | null;
   tmdb_rating: number;
   tmdb_vote_count: number;
   genres: number[];
   content_rating: string | null;
+  keywords?: string[];
 }
 
 interface CastMember {
@@ -79,6 +87,14 @@ export default function FilmDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [synopsisExpanded, setSynopsisExpanded] = useState(false);
   const [showStatusPicker, setShowStatusPicker] = useState(false);
+
+  // Director's Commentary
+  const [commentaryLoading, setCommentaryLoading] = useState(false);
+  const [commentaryData, setCommentaryData] = useState<{ text: string; type: 'pre'|'post'; cached: boolean } | null>(null);
+  const commentaryTypeRequested = ['watched', 'dropped'].includes(libraryStatus || '') ? 'post' : 'pre';
+
+  // Daily pick context passed via params (for "Convince Me" card)
+  const { fromPick, hook, twist, reason } = useLocalSearchParams();
 
   const fetchFilm = useCallback(async () => {
     if (!id) return;
@@ -111,7 +127,7 @@ export default function FilmDetailScreen() {
       if (filmData.genres && filmData.genres.length > 0) {
         const { data: similarData } = await supabase
           .from('films')
-          .select('id, tmdb_id, title, release_year, poster_url, backdrop_url, tmdb_rating, genres')
+          .select('id, tmdb_id, title, release_year, poster_path, backdrop_path, tmdb_rating, genres')
           .contains('genres', [filmData.genres[0]])
           .neq('id', filmData.id)
           .gte('tmdb_rating', 6.5)
@@ -146,6 +162,30 @@ export default function FilmDetailScreen() {
     fetchFilm();
   }, [fetchFilm]);
 
+  const fetchCommentary = async () => {
+    if (!film || !session?.access_token) return;
+    setCommentaryLoading(true);
+    try {
+      const EXPO_PUBLIC_API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://flick-ysai.onrender.com';
+      const res = await fetch(`${EXPO_PUBLIC_API_URL}/api/films/${film.id}/commentary?type=${commentaryTypeRequested}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data) {
+          setCommentaryData(json.data);
+        }
+      } else {
+        const err = await res.json();
+        Alert.alert('Notice', err.error?.message || 'Could not fetch commentary.');
+      }
+    } catch {
+      Alert.alert('Error', 'Failed to fetch commentary.');
+    } finally {
+      setCommentaryLoading(false);
+    }
+  };
+
   const handleStatusSelect = async (status: LibraryStatus) => {
     setShowStatusPicker(false);
     if (!session?.user?.id || !film) return;
@@ -163,6 +203,21 @@ export default function FilmDetailScreen() {
       if (!error) setLibraryStatus(status);
     } catch (err) {
       Alert.alert('Error', 'Could not update library status. Please try again.');
+    }
+  };
+
+  const handleRatingSubmit = async (rating: number) => {
+    setUserRating(rating);
+    if (!session?.user?.id || !film) return;
+
+    try {
+      await supabase
+        .from('user_film_entries')
+        .update({ rating })
+        .eq('user_id', session.user.id)
+        .eq('film_id', film.id);
+    } catch (err) {
+      console.error('Failed to save rating:', err);
     }
   };
 
@@ -192,11 +247,11 @@ export default function FilmDetailScreen() {
     );
   }
 
-  const backdropImgUrl = film.backdrop_url?.startsWith('/')
-    ? backdropUrl(film.backdrop_url)
+  const backdropImgUrl = film.backdrop_path?.startsWith('/')
+    ? backdropUrl(film.backdrop_path)
     : null;
-  const posterImgUrl = film.poster_url?.startsWith('/')
-    ? posterUrl(film.poster_url, 'w342')
+  const posterImgUrl = film.poster_path?.startsWith('/')
+    ? posterUrl(film.poster_path, 'w342')
     : null;
   const directors = cast.filter(c => c.role === 'director');
   const actors = cast.filter(c => c.role === 'actor');
@@ -281,12 +336,49 @@ export default function FilmDetailScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* ── Genres ── */}
-          {film.genres && film.genres.length > 0 && (
+          {/* ── Rating Picker (if watched or watching) ── */}
+          {(libraryStatus === 'watched' || libraryStatus === 'watching') && (
+            <View style={styles.section}>
+              <RatingPicker 
+                rating={userRating} 
+                onRatingChange={setUserRating}
+                onSlidingComplete={handleRatingSubmit}
+              />
+            </View>
+          )}
+
+          {/* ── Convince Me (If from Daily Pick) ── */}
+          {fromPick && (
+            <ConvinceMeCard 
+              hook={(hook as string) || 'A cinematic masterpiece.'} 
+              twist={(twist as string) || 'Keeps you guessing.'} 
+              personal_reason={(reason as string) || 'You loved similar gritty dramas.'}
+            />
+          )}
+
+          {/* ── Streaming Availability (Placeholder) ── */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Available On</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.streamingRow}>
+                {MOCK_STREAMING.map(prov => (
+                  <View key={prov.id} style={styles.streamingLogoWrap}>
+                    <Image source={{ uri: prov.logo }} style={styles.streamingLogo} contentFit="cover" />
+                  </View>
+                ))}
+            </View>
+            </ScrollView>
+          </View>
+
+          {/* ── Genres & Keywords ── */}
+          {(film.genres?.length > 0 || film.keywords?.length > 0) && (
             <View style={styles.section}>
               <View style={styles.genreChips}>
-                {film.genres.map((g) => GENRE_MAP[g] && (
+                {film.genres?.map((g) => GENRE_MAP[g] && (
                   <GenreChip key={g} label={GENRE_MAP[g]} />
+                ))}
+                {film.keywords?.slice(0, 3).map((kw, i) => (
+                  <GenreChip key={`kw-${i}`} label={kw} /> // re-using GenreChip UI for keywords visually
                 ))}
               </View>
             </View>
@@ -318,6 +410,58 @@ export default function FilmDetailScreen() {
               </TouchableOpacity>
             </View>
           )}
+
+          {/* ── Sprint 3.4: Director's Commentary ── */}
+          <View style={styles.section}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing[3] }}>
+              <Text style={styles.sectionLabel}>
+                {commentaryTypeRequested === 'post' ? "Post-Watch Debrief" : "Pre-Watch Primer"}
+              </Text>
+              <Text style={{ color: Colors.brand.primary, fontSize: 16 }}>✦</Text>
+            </View>
+            
+            <View style={{
+              backgroundColor: 'rgba(255,255,255,0.05)',
+              padding: Spacing[4],
+              borderRadius: Radius.md,
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.1)'
+            }}>
+              {commentaryLoading ? (
+                <View style={{ paddingVertical: Spacing[6], alignItems: 'center' }}>
+                  <ActivityIndicator color={Colors.brand.primary} size="small" />
+                  <Text style={{ marginTop: Spacing[2], color: Colors.text.tertiary, fontFamily: Typography.family.body }}>Unlocking insights...</Text>
+                </View>
+              ) : commentaryData ? (
+                <View>
+                  <Text style={{ 
+                    color: Colors.text.primary, 
+                    fontFamily: Typography.family.body, 
+                    fontSize: Typography.size.base, 
+                    lineHeight: 24 
+                  }}>
+                    {commentaryData.text}
+                  </Text>
+                  {commentaryData.cached && (
+                    <Text style={{ marginTop: Spacing[3], color: Colors.text.tertiary, fontSize: Typography.size.sm }}>From the Flick Archives</Text>
+                  )}
+                </View>
+              ) : (
+                <TouchableOpacity 
+                  onPress={fetchCommentary}
+                  activeOpacity={0.8}
+                  style={{ alignItems: 'center', paddingVertical: Spacing[4] }}
+                >
+                  <Text style={{ color: Colors.text.secondary, fontFamily: Typography.family.bodyMedium }}>
+                    {commentaryTypeRequested === 'post' 
+                      ? "Tap to reveal themes and spoiler discussions." 
+                      : "Tap for a spoiler-free guide on what to watch for."}
+                  </Text>
+                  <Text style={{ color: Colors.brand.primary, marginTop: Spacing[2], fontFamily: Typography.family.bodyBold }}>Unlock Commentary</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
 
           {/* ── Director ── */}
           {directors.length > 0 && (
@@ -361,7 +505,7 @@ export default function FilmDetailScreen() {
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={styles.similarRow}>
                   {similar.slice(0, 10).map((s) => {
-                    const sUrl = s.poster_url?.startsWith('/') ? posterUrl(s.poster_url, 'w185') : null;
+                    const sUrl = s.poster_path?.startsWith('/') ? posterUrl(s.poster_path, 'w185') : null;
                     return (
                       <TouchableOpacity
                         key={s.id}
@@ -634,6 +778,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing[2],
+  },
+  streamingRow: {
+    flexDirection: 'row',
+    gap: Spacing[3],
+  },
+  streamingLogoWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: Radius.md,
+    overflow: 'hidden',
+    backgroundColor: Colors.background.surface,
+  },
+  streamingLogo: {
+    ...StyleSheet.absoluteFillObject,
   },
   tagline: {
     fontSize: Typography.size.base,

@@ -45,3 +45,6 @@ coverage/
 # Supabase local
 supabase/.branches/
 supabase/.temp/
+
+# Firebase
+services/api/firebase-service.json

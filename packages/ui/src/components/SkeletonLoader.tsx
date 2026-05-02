@@ -1,9 +1,6 @@
-import React, { useEffect } from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
-import Animated, {
-  useSharedValue, useAnimatedStyle, withRepeat, withTiming, interpolate,
-} from 'react-native-reanimated';
-import { Colors, Radius } from '../tokens.js';
+import React, { useEffect, useRef } from 'react';
+import { Animated, View, StyleSheet, ViewStyle } from 'react-native';
+import { Colors, Radius } from '../tokens';
 
 interface SkeletonLoaderProps {
   width: number | `${number}%`;
@@ -13,24 +10,25 @@ interface SkeletonLoaderProps {
 }
 
 export function SkeletonLoader({ width, height, borderRadius = Radius.md, style }: SkeletonLoaderProps) {
-  const opacity = useSharedValue(1);
+  const opacity = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    opacity.value = withRepeat(
-      withTiming(0.3, { duration: 800 }),
-      -1,
-      true
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 1, duration: 800, useNativeDriver: true }),
+      ])
     );
+    animation.start();
+    return () => animation.stop();
   }, [opacity]);
-
-  const animStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
   return (
     <Animated.View
       style={[
         styles.skeleton,
         { width, height, borderRadius },
-        animStyle,
+        { opacity },
         style,
       ]}
     />

@@ -11,16 +11,18 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
+import { NavigationProp } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
 import { Colors, Typography, Spacing, Radius, posterUrl } from '@flick/ui';
 import { RatingBadge } from '@flick/ui';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface Film {
   id: string;
   tmdb_id: number;
   title: string;
   release_year: number;
-  poster_url: string | null;
+  poster_path: string | null;
   tmdb_rating: number;
   original_language: string | null;
 }
@@ -38,20 +40,51 @@ export default function SearchScreen() {
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [activeGenre, setActiveGenre] = useState<string | null>(null);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const inputRef = useRef<TextInput>(null);
 
-  const searchFilms = useCallback(async (q: string) => {
+  // Load recent searches on mount
+  React.useEffect(() => {
+    AsyncStorage.getItem('recent_searches').then(res => {
+      if (res) {
+        try {
+          setRecentSearches(JSON.parse(res));
+        } catch(e) {}
+      }
+    });
+  }, []);
+
+  const saveRecentSearch = async (q: string) => {
+    if (!q || q.length < 2) return;
+    const term = q.trim();
+    let newRecents = [term, ...recentSearches.filter(s => s !== term)].slice(0, 5);
+    setRecentSearches(newRecents);
+    await AsyncStorage.setItem('recent_searches', JSON.stringify(newRecents));
+  };
+
+  const removeRecentSearch = async (term: string) => {
+    const newRecents = recentSearches.filter(s => s !== term);
+    setRecentSearches(newRecents);
+    await AsyncStorage.setItem('recent_searches', JSON.stringify(newRecents));
+  };
+
+  const searchFilms = useCallback(async (q: string, isSubmit = false) => {
     if (q.trim().length < 2) {
       setResults([]);
       setHasSearched(false);
       return;
     }
+    
+    if (isSubmit) {
+      saveRecentSearch(q);
+    }
+    
     setLoading(true);
     setHasSearched(true);
     try {
       const { data, error } = await supabase
         .from('films')
-        .select('id, tmdb_id, title, release_year, poster_url, tmdb_rating, original_language')
+        .select('id, tmdb_id, title, release_year, poster_path, tmdb_rating, original_language')
         .ilike('title', `%${q.trim()}%`)
         .order('tmdb_vote_count', { ascending: false })
         .limit(30);
@@ -69,7 +102,11 @@ export default function SearchScreen() {
   const handleQueryChange = (text: string) => {
     setQuery(text);
     if (debounceTimer) clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => searchFilms(text), 300);
+    debounceTimer = setTimeout(() => searchFilms(text, false), 300);
+  };
+
+  const handleSubmit = () => {
+    searchFilms(query, true);
   };
 
   const handleGenrePress = async (genre: string) => {
@@ -87,7 +124,7 @@ export default function SearchScreen() {
     try {
       const { data } = await supabase
         .from('films')
-        .select('id, tmdb_id, title, release_year, poster_url, tmdb_rating, original_language')
+        .select('id, tmdb_id, title, release_year, poster_path, tmdb_rating, original_language')
         .order('tmdb_rating', { ascending: false })
         .gte('tmdb_vote_count', 5000)
         .limit(30);
@@ -106,8 +143,8 @@ export default function SearchScreen() {
   };
 
   const renderFilmRow = ({ item }: { item: Film }) => {
-    const imageUrl = item.poster_url?.startsWith('/')
-      ? posterUrl(item.poster_url, 'w185')
+    const imageUrl = item.poster_path?.startsWith('/')
+      ? posterUrl(item.poster_path, 'w185')
       : null;
 
     return (
@@ -155,6 +192,7 @@ export default function SearchScreen() {
             style={styles.searchInput}
             value={query}
             onChangeText={handleQueryChange}
+            onSubmitEditing={handleSubmit}
             placeholder="Films, directors, actors..."
             placeholderTextColor={Colors.text.tertiary}
             returnKeyType="search"
@@ -169,25 +207,52 @@ export default function SearchScreen() {
         </View>
       </View>
 
-      {/* Genre pills */}
+      {/* Genre pills & Recent Searches */}
       {!hasSearched && (
-        <View style={styles.genreSection}>
-          <Text style={styles.genreSectionLabel}>Browse by genre</Text>
-          <View style={styles.genrePills}>
-            {GENRE_PILLS.map((genre) => (
-              <TouchableOpacity
-                key={genre}
-                style={[styles.genrePill, activeGenre === genre && styles.genrePillActive]}
-                onPress={() => handleGenrePress(genre)}
-                activeOpacity={0.75}
-              >
-                <Text style={[styles.genrePillText, activeGenre === genre && styles.genrePillTextActive]}>
-                  {genre}
-                </Text>
-              </TouchableOpacity>
-            ))}
+        <ScrollView style={{flex: 1}}>
+          {recentSearches.length > 0 && (
+            <View style={[styles.genreSection, { paddingBottom: 0 }]}>
+              <Text style={styles.genreSectionLabel}>Recent Searches</Text>
+              <View style={styles.recentSearchesContainer}>
+                {recentSearches.map(term => (
+                  <View key={`recent-${term}`} style={styles.recentSearchItem}>
+                    <TouchableOpacity 
+                      style={styles.recentSearchTerm} 
+                      onPress={() => {
+                        setQuery(term);
+                        searchFilms(term, true);
+                      }}
+                    >
+                      <Text style={styles.searchIconSmall}>⌕</Text>
+                      <Text style={styles.recentSearchText}>{term}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => removeRecentSearch(term)} style={styles.recentSearchRemoveBtn}>
+                      <Text style={styles.recentSearchRemove}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+          <View style={styles.genreSection}>
+            <Text style={styles.genreSectionLabel}>Browse by genre</Text>
+            <View style={styles.genrePills}>
+              {GENRE_PILLS.map((genre) => (
+                <TouchableOpacity
+                  key={genre}
+                  style={[styles.genrePill, activeGenre === genre && styles.genrePillActive]}
+                  onPress={() => handleGenrePress(genre)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.genrePillText, activeGenre === genre && styles.genrePillTextActive]}>
+                    {genre}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
-        </View>
+        </ScrollView>
       )}
 
       {/* Results */}
@@ -275,6 +340,38 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     textTransform: 'uppercase',
     marginBottom: Spacing[3],
+  },
+  recentSearchesContainer: {
+    gap: Spacing[2],
+    marginBottom: Spacing[4],
+  },
+  recentSearchItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: Spacing[2],
+  },
+  recentSearchTerm: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing[3],
+  },
+  searchIconSmall: {
+    fontSize: 16,
+    color: Colors.text.tertiary,
+  },
+  recentSearchText: {
+    fontSize: Typography.size.base,
+    fontFamily: Typography.family.body,
+    color: Colors.text.secondary,
+  },
+  recentSearchRemoveBtn: {
+    padding: Spacing[2],
+  },
+  recentSearchRemove: {
+    fontSize: Typography.size.sm,
+    color: Colors.text.tertiary,
   },
   genrePills: {
     flexDirection: 'row',

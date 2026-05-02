@@ -1,0 +1,17 @@
+name: Nightly Recommendation Batch
+
+on:
+  schedule:
+    # Runs at 00:00 UTC every day
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Allows manual trigger from GH UI
+
+jobs:
+  run-batch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hit Nightly Batch Endpoint
+        run: |
+          curl -X POST https://flick-ysai.onrender.com/api/recommendations/nightly-batch \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+          -H "Content-Type: application/json"

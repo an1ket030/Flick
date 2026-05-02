@@ -19,16 +19,38 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 (function applyURLPolyfillFirst() {
   /**
-   * Use the battle-tested WHATWG URL polyfill for React Native.
-   * This provides a working `URL`, `URLSearchParams`, and mutable fields.
+   * In bridgeless RN 0.76, the built-in `URL` implementation can throw:
+   * - "URL.protocol is not implemented"
+   * and Expo Go can also mark global properties as non-writable, so
+   * `react-native-url-polyfill/auto` may crash with "property is not writable".
    *
-   * It must run before any libraries (Supabase, Expo AuthSession, etc.) touch URL.
+   * We therefore install the polyfill defensively using `defineProperty`,
+   * and fall back to the prototype patch below if we can't replace globals.
    */
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    require('react-native-url-polyfill/auto');
+    const urlMod = require('react-native-url-polyfill');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const URLImpl = require('react-native-url-polyfill/js/URL').URL;
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const URLSearchParamsImpl = require('react-native-url-polyfill/js/URLSearchParams').URLSearchParams;
+
+    // Mark that we attempted installation (useful for debugging in device logs)
+    try {
+      Object.defineProperty(globalThis, 'REACT_NATIVE_URL_POLYFILL', {
+        value: `react-native-url-polyfill@${urlMod?.version ?? 'unknown'}`,
+        configurable: true,
+      });
+    } catch {}
+
+    try {
+      Object.defineProperty(globalThis, 'URL', { value: URLImpl, writable: true, configurable: true });
+      Object.defineProperty(globalThis, 'URLSearchParams', { value: URLSearchParamsImpl, writable: true, configurable: true });
+    } catch {
+      // If globals are sealed, don't crash — the prototype patch below may still help.
+    }
   } catch {
-    // If the polyfill isn't available for any reason, fall back to the patch below.
+    // Polyfill not available; fall back to prototype patch below.
   }
 })();
 
