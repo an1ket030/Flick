@@ -300,7 +300,6 @@ export async function getMoodPick(
     film_id: chosen.id,
     confidence_score: 0.9, // Mood matches are inherently high confidence for the specific intent
     confidence_level: 'high',
-    confidence_level: 'high',
     layers_used: ['mood_engine', mood],
     algorithm_version: ALGO_VERSION,
   }));

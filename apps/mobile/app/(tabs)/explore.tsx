@@ -73,7 +73,7 @@ export default function ExploreScreen() {
   const fetchRails = async () => {
     // Fetch Predictions
     try {
-      const pRes = await fetch(`${API_BASE_URL}/api/predictions`, {
+      const pRes = await fetch(`${API_BASE_URL}/api/recommendations/predictions`, {
         headers: { 'Authorization': `Bearer ${session?.access_token}` }
       });
       if (pRes.ok) {
@@ -157,7 +157,7 @@ export default function ExploreScreen() {
       let query = supabase
         .from('films')
         .select('id, tmdb_id, title, release_year, poster_path, backdrop_path, tmdb_rating, genres')
-        .gte('tmdb_vote_count', 10000)
+        .gte('tmdb_vote_count', 100)
         .order('tmdb_rating', { ascending: false });
 
       if (activeDecade === '2020s') {

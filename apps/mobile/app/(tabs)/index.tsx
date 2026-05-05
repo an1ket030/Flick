@@ -91,8 +91,16 @@ export default function HomeScreen() {
         headers: { 'Authorization': `Bearer ${session.access_token}` }
       });
       if (res.ok) {
-        const data = await res.json();
-        setDailyPick(data.recommendation || null);
+        const responseData = await res.json();
+        const pickData = responseData?.data;
+        if (pickData?.pick_meta && pickData?.film) {
+          setDailyPick({
+            ...pickData.film,
+            score: pickData.pick_meta.confidence_score,
+          });
+        } else {
+          setDailyPick(null);
+        }
       } else {
         setDailyPick(null);
       }
@@ -119,25 +127,48 @@ export default function HomeScreen() {
         }
       }
 
-      // Fetch popular films
-      const { data: pop, error: popErr } = await supabase
+      // Fetch popular films — use a low threshold so any synced data shows up
+      let { data: pop, error: popErr } = await supabase
         .from('films')
         .select('id, tmdb_id, title, release_year, poster_path, backdrop_path, tmdb_rating, genres, synopsis')
-        .gte('tmdb_vote_count', 100)
+        .gte('tmdb_vote_count', 10)
         .order('tmdb_vote_count', { ascending: false })
         .limit(20);
+
+      // Fallback: if nothing, just grab any films ordered by id
+      if (!pop || pop.length === 0) {
+        const fallback = await supabase
+          .from('films')
+          .select('id, tmdb_id, title, release_year, poster_path, backdrop_path, tmdb_rating, genres, synopsis')
+          .order('tmdb_rating', { ascending: false })
+          .limit(20);
+        pop = fallback.data;
+        popErr = fallback.error;
+      }
 
       if (popErr) console.error('Popular films error:', popErr.message);
       if (pop) setPopularFilms(pop);
 
       // Fetch top-rated films
-      const { data: top, error: topErr } = await supabase
+      let { data: top, error: topErr } = await supabase
         .from('films')
         .select('id, tmdb_id, title, release_year, poster_path, backdrop_path, tmdb_rating, genres, synopsis')
-        .gte('tmdb_rating', 7.5)
-        .gte('tmdb_vote_count', 100)
+        .gte('tmdb_rating', 7.0)
+        .gte('tmdb_vote_count', 10)
         .order('tmdb_rating', { ascending: false })
         .limit(20);
+
+      // Fallback: if nothing, just grab well-rated films with no vote constraint
+      if (!top || top.length === 0) {
+        const fallback = await supabase
+          .from('films')
+          .select('id, tmdb_id, title, release_year, poster_path, backdrop_path, tmdb_rating, genres, synopsis')
+          .gte('tmdb_rating', 6.0)
+          .order('tmdb_rating', { ascending: false })
+          .limit(20);
+        top = fallback.data;
+        topErr = fallback.error;
+      }
 
       if (topErr) console.error('Top-rated films error:', topErr.message);
       if (top) setTopRated(top);

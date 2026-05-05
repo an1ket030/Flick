@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import * as Linking from 'expo-linking';
+import { ArrowLeft, Check } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 import { Colors, Typography, Spacing, Radius } from '@flick/ui';
 
@@ -73,7 +74,7 @@ export default function SignupScreen() {
       <View style={styles.container}>
         <View style={styles.successContainer}>
           <View style={styles.successIcon}>
-            <Text style={styles.successIconText}>✓</Text>
+            <Check size={32} color={Colors.status.success} strokeWidth={2.5} />
           </View>
           <Text style={styles.successTitle}>Check your inbox.</Text>
           <Text style={styles.successSubtitle}>
@@ -105,7 +106,7 @@ export default function SignupScreen() {
       >
         {/* Back */}
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.7}>
-          <Text style={styles.backIcon}>←</Text>
+          <ArrowLeft size={20} color={Colors.text.primary} strokeWidth={2} />
         </TouchableOpacity>
 
         {/* Header */}

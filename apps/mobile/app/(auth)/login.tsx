@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
+import { ArrowLeft } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 import { Colors, Typography, Spacing, Radius } from '@flick/ui';
 
@@ -57,7 +58,7 @@ export default function LoginScreen() {
       >
         {/* Back */}
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.7}>
-          <Text style={styles.backIcon}>←</Text>
+          <ArrowLeft size={20} color={Colors.text.primary} strokeWidth={2} />
         </TouchableOpacity>
 
         {/* Header */}

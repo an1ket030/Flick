@@ -14,7 +14,7 @@ import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import * as WebBrowser from 'expo-web-browser';
-import { makeRedirectUri } from 'expo-linking';
+import * as Linking from 'expo-linking';
 import { supabase } from '../../lib/supabase';
 import { Colors, Typography, Spacing, Radius } from '@flick/ui';
 
