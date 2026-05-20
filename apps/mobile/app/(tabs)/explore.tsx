@@ -54,6 +54,8 @@ export default function ExploreScreen() {
   const [filterPlatform, setFilterPlatform] = useState<boolean>(false);
   const [moodLoading, setMoodLoading] = useState(false);
   const [moodResults, setMoodResults] = useState<Film[] | null>(null);
+  const [moodError, setMoodError] = useState(false);
+  const [moodServerWaking, setMoodServerWaking] = useState(false);
 
   const [predictions, setPredictions] = useState<any[]>([]);
   const [hiddenGems, setHiddenGems] = useState<Film[]>([]);
@@ -123,6 +125,12 @@ export default function ExploreScreen() {
   const handleMoodSearch = async () => {
     if (!activeMood || !session?.access_token) return;
     setMoodLoading(true);
+    setMoodError(false);
+    setMoodResults(null);
+
+    // Show waking hint after 3s
+    const wakingTimer = setTimeout(() => setMoodServerWaking(true), 3000);
+
     try {
       const res = await fetch(`${API_BASE_URL}/api/recommendations/mood-pick`, {
         method: 'POST',
@@ -142,11 +150,15 @@ export default function ExploreScreen() {
         const { data } = await res.json();
         setMoodResults(data || []);
       } else {
+        setMoodError(true);
         setMoodResults([]);
       }
     } catch (e) {
       console.error('Mood fetch error', e);
+      setMoodError(true);
     } finally {
+      clearTimeout(wakingTimer);
+      setMoodServerWaking(false);
       setMoodLoading(false);
     }
   };
@@ -274,11 +286,31 @@ export default function ExploreScreen() {
           )}
         </View>
 
-        {moodResults && (
+        {/* Mood loading feedback */}
+        {moodLoading && (
+          <View style={styles.moodFeedback}>
+            <ActivityIndicator color={Colors.brand.primary} />
+            {moodServerWaking && (
+              <Text style={styles.moodFeedbackText}>Server is waking up... this can take ~30 seconds.</Text>
+            )}
+          </View>
+        )}
+
+        {/* Mood error state */}
+        {!moodLoading && moodError && (
+          <View style={styles.moodFeedback}>
+            <Text style={styles.moodErrorText}>Couldn't fetch recommendations. The server may be starting up.</Text>
+            <TouchableOpacity onPress={handleMoodSearch} style={styles.moodRetryBtn} activeOpacity={0.8}>
+              <Text style={styles.moodRetryText}>Try Again</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {moodResults && moodResults.length > 0 && (
           <View style={styles.moodResultsBlock}>
             <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
               <Text style={styles.sectionTitle}>Your Match</Text>
-              <TouchableOpacity onPress={() => setMoodResults(null)}>
+              <TouchableOpacity onPress={() => { setMoodResults(null); setMoodError(false); }}>
                 <Text style={styles.clearText}>Clear</Text>
               </TouchableOpacity>
             </View>
@@ -298,6 +330,7 @@ export default function ExploreScreen() {
             </View>
           </View>
         )}
+
       </View>
 
       {!moodResults && (
@@ -623,5 +656,35 @@ const styles = StyleSheet.create({
   feedHeader: {
     marginBottom: Spacing[4],
     paddingHorizontal: Spacing[6],
+  },
+  moodFeedback: {
+    alignItems: 'center',
+    paddingVertical: Spacing[6],
+    paddingHorizontal: Spacing[6],
+    gap: Spacing[3],
+  },
+  moodFeedbackText: {
+    fontSize: Typography.size.sm,
+    fontFamily: Typography.family.body,
+    color: Colors.text.secondary,
+    textAlign: 'center',
+  },
+  moodErrorText: {
+    fontSize: Typography.size.sm,
+    fontFamily: Typography.family.bodyMedium,
+    color: Colors.text.secondary,
+    textAlign: 'center',
+  },
+  moodRetryBtn: {
+    backgroundColor: Colors.brand.primary,
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing[6],
+    paddingVertical: Spacing[3],
+    marginTop: Spacing[2],
+  },
+  moodRetryText: {
+    fontSize: Typography.size.sm,
+    fontFamily: Typography.family.bodyBold,
+    color: Colors.text.inverse,
   },
 });

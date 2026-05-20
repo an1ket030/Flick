@@ -78,6 +78,8 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [dismissing, setDismissing] = useState(false);
+  const [serverWaking, setServerWaking] = useState(false);
+  const [fetchFailed, setFetchFailed] = useState(false);
 
   // Convince Me (Gemini AI)
   const [convincePitch, setConvincePitch] = useState<string | null>(null);
@@ -110,6 +112,11 @@ export default function HomeScreen() {
   }, [session?.access_token]);
 
   const fetchData = useCallback(async () => {
+    setFetchFailed(false);
+
+    // Show a "server waking up" hint after 3 seconds of loading
+    const wakingTimer = setTimeout(() => setServerWaking(true), 3000);
+
     try {
       await fetchDailyPick();
 
@@ -174,7 +181,10 @@ export default function HomeScreen() {
       if (top) setTopRated(top);
     } catch (error) {
       console.error('Home data fetch error:', error);
+      setFetchFailed(true);
     } finally {
+      clearTimeout(wakingTimer);
+      setServerWaking(false);
       setLoading(false);
       setRefreshing(false);
     }
@@ -247,6 +257,25 @@ export default function HomeScreen() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={Colors.brand.primary} />
+        {serverWaking && (
+          <View style={styles.wakingContainer}>
+            <Text style={styles.wakingTitle}>Server is waking up...</Text>
+            <Text style={styles.wakingSubtext}>This can take up to 30 seconds on first load.</Text>
+          </View>
+        )}
+        {fetchFailed && (
+          <View style={styles.wakingContainer}>
+            <Text style={styles.wakingTitle}>Could not connect</Text>
+            <Text style={styles.wakingSubtext}>The server may be unavailable.</Text>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={() => { setLoading(true); fetchData(); }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.retryButtonText}>Try Again</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     );
   }
@@ -492,6 +521,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.background.base,
+    gap: Spacing[3],
+  },
+  wakingContainer: {
+    alignItems: 'center',
+    marginTop: Spacing[4],
+    paddingHorizontal: Spacing[8],
+  },
+  wakingTitle: {
+    fontSize: Typography.size.sm,
+    fontFamily: Typography.family.bodyMedium,
+    color: Colors.text.secondary,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  wakingSubtext: {
+    fontSize: Typography.size.xs,
+    fontFamily: Typography.family.body,
+    color: Colors.text.tertiary,
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: Spacing[4],
+    backgroundColor: Colors.brand.primary,
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing[6],
+    paddingVertical: Spacing[3],
+  },
+  retryButtonText: {
+    fontSize: Typography.size.sm,
+    fontFamily: Typography.family.bodyBold,
+    color: Colors.text.inverse,
   },
 
   // ── Greeting ──

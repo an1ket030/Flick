@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Text, FlatList, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Text, FlatList, ActivityIndicator, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { Stack, router } from 'expo-router';
 import { Colors, Typography, Spacing, Radius } from '@flick/ui';
@@ -99,9 +99,24 @@ export default function FineTuneScreen() {
     setLoading(true);
     try {
       // 1. Submit extended seed targets
-      const tmdbIds = Object.values(entries).filter(e => e.answered && e.rating !== null).map(e => e.tmdb_id);
+      const ratedEntries = Object.values(entries).filter(e => e.answered && e.rating !== null);
+      const tmdbIds = ratedEntries.map(e => e.tmdb_id);
+
       if (tmdbIds.length > 0) {
-        const { data: films } = await supabase.from('films').select('id, tmdb_id').in('tmdb_id', tmdbIds);
+        const { data: films, error: filmsErr } = await supabase
+          .from('films')
+          .select('id, tmdb_id')
+          .in('tmdb_id', tmdbIds);
+
+        if (filmsErr) throw filmsErr;
+
+        // Warn if some rated films aren't in the DB yet (seed sync not run)
+        if (!films || films.length < tmdbIds.length) {
+          const foundIds = new Set((films ?? []).map(f => f.tmdb_id));
+          const missing = tmdbIds.filter(id => !foundIds.has(id));
+          console.warn(`⚠️ Fine-tune: ${missing.length} rated film(s) missing from DB (TMDB IDs: ${missing.join(', ')}). Run sync-tmdb to fix.`);
+        }
+
         if (films && films.length > 0) {
           const entriesToInsert = films.map(film => ({
             user_id: user.id,
@@ -109,19 +124,33 @@ export default function FineTuneScreen() {
             status: 'watched',
             rating: entries[film.tmdb_id]?.rating,
           }));
-          await supabase.from('user_film_entries').upsert(entriesToInsert, { onConflict: 'user_id,film_id' });
+          const { error: upsertErr } = await supabase
+            .from('user_film_entries')
+            .upsert(entriesToInsert, { onConflict: 'user_id,film_id' });
+          if (upsertErr) throw upsertErr;
         }
       }
 
       // 2. Update Taste Profile
-      await supabase.from('taste_profiles').update({
-        primary_intent: intent,
-        director_familiarity: directors,
-      }).eq('user_id', user.id);
+      const { error: profileErr } = await supabase
+        .from('taste_profiles')
+        .update({
+          primary_intent: intent,
+          director_familiarity: directors,
+        })
+        .eq('user_id', user.id);
+
+      if (profileErr) throw profileErr;
 
       router.back();
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to complete fine tune', e);
+      Alert.alert(
+        'Save Failed',
+        'We couldn\'t save your preferences. Please check your connection and try again.' +
+          (e?.message ? `\n\nDetails: ${e.message}` : ''),
+        [{ text: 'OK' }]
+      );
     } finally {
       setLoading(false);
     }

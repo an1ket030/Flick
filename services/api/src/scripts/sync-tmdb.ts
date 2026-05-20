@@ -277,6 +277,34 @@ async function main() {
 
   const allIds = new Set<number>();
 
+  // ── Priority seeds ──────────────────────────────────────────────────────────
+  // These are the exact TMDB IDs used in the fine-tune onboarding screen
+  // (apps/mobile/app/profile/fine-tune.tsx). They MUST be in the DB or the
+  // fine-tune step silently skips saving ratings. Sync these unconditionally first.
+  const FINE_TUNE_SEED_IDS = [
+    118340, // Guardians of the Galaxy (2014)
+    530385, // Midsommar (2019)
+    264660, // Ex Machina (2015)
+    597089, // Five Nights at Freddy's (2023)
+    848538, // Argylle (2024)
+    489,    // Good Will Hunting (1997)
+    313369, // La La Land (2016)
+    615656, // Meg 2: The Trench (2023)
+  ];
+
+  console.log('🌱 Syncing fine-tune seed films first...');
+  let seedSucceeded = 0;
+  for (const tmdbId of FINE_TUNE_SEED_IDS) {
+    allIds.add(tmdbId); // pre-add so main loop skips duplicates
+    const film = await fetchFilmDetails(tmdbId);
+    if (film && !film.adult) {
+      const id = await upsertFilm(film);
+      if (id) seedSucceeded++;
+    }
+    await new Promise(r => setTimeout(r, 150));
+  }
+  console.log(`   ✅ Seeded ${seedSucceeded}/${FINE_TUNE_SEED_IDS.length} priority films\n`);
+
   // Fetch popular films (up to 50 pages = 1000 films)
   console.log('📡 Fetching popular films...');
   for (let page = 1; page <= 50 && allIds.size < LIMIT; page++) {

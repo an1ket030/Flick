@@ -169,14 +169,32 @@ export async function getDailyPick(userId: string): Promise<PickResult | null> {
     ...(watchedEntries ?? []).map(e => e.film_id as string),
   ]);
 
-  // Fetch candidate films (quality gate)
-  const { data: candidates } = await supabase
+  // Fetch candidate films — try strict quality gate first, then relax if DB is small
+  let { data: candidates } = await supabase
     .from('films')
     .select('id, genres, original_language, countries, tmdb_rating, tmdb_vote_count, runtime_minutes, adult')
     .gte('tmdb_rating', 6.5)
     .gte('tmdb_vote_count', 500)
     .eq('adult', false)
     .limit(500);
+
+  // Fallback 1: relax vote_count gate
+  if (!candidates || candidates.length === 0) {
+    ({ data: candidates } = await supabase
+      .from('films')
+      .select('id, genres, original_language, countries, tmdb_rating, tmdb_vote_count, runtime_minutes, adult')
+      .gte('tmdb_rating', 5.0)
+      .eq('adult', false)
+      .limit(500));
+  }
+
+  // Fallback 2: any film in DB
+  if (!candidates || candidates.length === 0) {
+    ({ data: candidates } = await supabase
+      .from('films')
+      .select('id, genres, original_language, countries, tmdb_rating, tmdb_vote_count, runtime_minutes, adult')
+      .limit(100));
+  }
 
   if (!candidates || candidates.length === 0) return null;
 
@@ -228,82 +246,91 @@ export async function getMoodPick(
     .from('user_film_entries')
     .select('film_id')
     .eq('user_id', userId)
-    .in('status', ['watched', 'planned', 'watching']); // Exclude all known to keep mood pick totally fresh
+    .in('status', ['watched', 'planned', 'watching']);
 
   const excludedIds = new Set((watchedEntries ?? []).map(e => e.film_id as string));
 
-  // Base query: Highly rated, good popularity to ensure mood hits are solid recommendations
-  let query = supabase
+  // Fetch candidate pool — try quality gate first, fall back progressively
+  let { data: allFilms } = await supabase
     .from('films')
     .select('id, genres, original_language, countries, tmdb_rating, tmdb_vote_count, runtime_minutes, adult')
     .gte('tmdb_rating', 6.5)
     .gte('tmdb_vote_count', 1000)
-    .eq('adult', false);
+    .eq('adult', false)
+    .order('tmdb_rating', { ascending: false })
+    .limit(200);
 
-  // Apply User Filters
-  if (filters.runtime) query = query.lte('runtime_minutes', 100);
-  if (filters.lang) query = query.eq('original_language', 'en');
-  // Streaming filter (platform) to be handled later or joined if table exists. We omit it from strict SQL for now unless we do a join.
-
-  // Apply Mood Definitions
-  switch (mood) {
-    case 'laugh':
-      // Comedy focus
-      query = query.contains('genres', [35]);
-      break;
-    case 'mind_bending':
-      // Sci-Fi, Mystery, Thriller combos
-      query = query.overlaps('genres', [878, 9648, 53]); 
-      // Often longer runtimes implicitly, but we just filter genre
-      break;
-    case 'heartbreak':
-      // Drama and Romance
-      query = query.overlaps('genres', [18, 10749]);
-      break;
-    case 'adrenaline':
-      // Action/Thriller, fast-paced
-      query = query.overlaps('genres', [28, 53, 12]);
-      break;
-    case 'disturbed':
-      // Horror, Crime, intense psychological
-      query = query.overlaps('genres', [27, 80, 53]);
-      break;
-    case 'warm':
-      // Feel-good: Family, Romance, Comedy, Animation
-      query = query.overlaps('genres', [10751, 10749, 35, 16]);
-      break;
-    case 'brain_off':
-      // Action, Comedy, Fantasy. Not too high rating requirement needed, just fun.
-      query = query.overlaps('genres', [28, 35, 14]);
-      break;
-    case 'visual':
-      // Animation, Fantasy, Sci-Fi. Known for visual spectacle.
-      query = query.overlaps('genres', [16, 14, 878]);
-      break;
-    default:
-      break;
+  // Fallback 1: relax vote_count gate
+  if (!allFilms || allFilms.length === 0) {
+    ({ data: allFilms } = await supabase
+      .from('films')
+      .select('id, genres, original_language, countries, tmdb_rating, tmdb_vote_count, runtime_minutes, adult')
+      .gte('tmdb_rating', 5.0)
+      .eq('adult', false)
+      .order('tmdb_rating', { ascending: false })
+      .limit(200));
   }
 
-  // Fetch top 50 matches for the mood
-  const { data: candidates } = await query.order('tmdb_rating', { ascending: false }).limit(50);
+  // Fallback 2: any film in DB
+  if (!allFilms || allFilms.length === 0) {
+    ({ data: allFilms } = await supabase
+      .from('films')
+      .select('id, genres, original_language, countries, tmdb_rating, tmdb_vote_count, runtime_minutes, adult')
+      .order('tmdb_rating', { ascending: false })
+      .limit(200));
+  }
 
-  if (!candidates) return [];
+  if (!allFilms) return [];
 
-  // Filter out seen films
-  const validCandidates = candidates.filter(f => !excludedIds.has(f.id));
+  // Map mood IDs to genre arrays for in-memory filtering
+  const MOOD_GENRES: Record<string, number[]> = {
+    laugh:        [35],              // Comedy
+    mind_bending: [878, 9648, 53],   // Sci-Fi, Mystery, Thriller
+    heartbreak:   [18, 10749],       // Drama, Romance
+    adrenaline:   [28, 53, 12],      // Action, Thriller, Adventure
+    disturbed:    [27, 80, 53],      // Horror, Crime, Thriller
+    warm:         [10751, 10749, 35, 16], // Family, Romance, Comedy, Animation
+    brain_off:    [28, 35, 14],      // Action, Comedy, Fantasy
+    visual:       [16, 14, 878],     // Animation, Fantasy, Sci-Fi
+  };
 
-  // We want EXACTLY 3 results, shuffled to keep it fresh
+  const moodGenres = MOOD_GENRES[mood] ?? [];
+
+  // Apply filters and mood in-memory
+  let filtered = allFilms.filter(f => {
+    const genres = (f.genres ?? []) as number[];
+    const runtime = f.runtime_minutes ?? 999;
+    const lang = f.original_language ?? '';
+
+    // User filters
+    if (filters.runtime && runtime > 100) return false;
+    if (filters.lang && lang !== 'en') return false;
+
+    // Mood filter — must match at least one mood genre (if mood genres defined)
+    if (moodGenres.length > 0 && !genres.some(g => moodGenres.includes(g))) return false;
+
+    return true;
+  });
+
+  // If mood filtering leaves nothing, fall back to all candidates (mood is relaxed)
+  if (filtered.length === 0) filtered = allFilms;
+
+  // Exclude already-seen films
+  const validCandidates = filtered.filter(f => !excludedIds.has(f.id));
+
+  // Pick exactly 3, shuffled for freshness
   const shuffled = validCandidates.sort(() => 0.5 - Math.random());
   const finalPicks = shuffled.slice(0, 3);
 
   return finalPicks.map(chosen => ({
     film_id: chosen.id,
-    confidence_score: 0.9, // Mood matches are inherently high confidence for the specific intent
+    confidence_score: 0.9,
     confidence_level: 'high',
     layers_used: ['mood_engine', mood],
     algorithm_version: ALGO_VERSION,
   }));
 }
+
 
 export interface PredictionResult {
   film_id: string;

@@ -35,9 +35,11 @@ initializeFirebase();
 // Security & Parsing Middleware
 // ============================================================
 app.use(helmet());
+// Allow all origins — the API is authenticated via JWT Bearer tokens, not cookies.
+// This allows Expo Go clients (with dynamic origins) to reach the backend.
 app.use(cors({
-  origin: env.CORS_ORIGINS.split(','),
-  credentials: true,
+  origin: '*',
+  credentials: false,
 }));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));

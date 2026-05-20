@@ -1,7 +1,24 @@
 import type { Request, Response, NextFunction } from 'express';
 import { createUserClient } from '../lib/supabase.js';
+import type { User } from '@supabase/supabase-js';
+
+/**
+ * Augment Express Request so all routes can access req.user and req.userId.
+ * Both point to the same data — req.user is the full Supabase User object,
+ * req.userId is a convenience shorthand for req.user.id.
+ */
+declare global {
+  namespace Express {
+    interface Request {
+      user?: User;
+      userId?: string;
+      accessToken?: string;
+    }
+  }
+}
 
 export interface AuthRequest extends Request {
+  user?: User;
   userId?: string;
   accessToken?: string;
 }
@@ -32,6 +49,8 @@ export async function requireAuth(
     return;
   }
 
+  // Set BOTH req.user (full object, used by most routes) and req.userId (shorthand)
+  req.user = user;
   req.userId = user.id;
   req.accessToken = token;
   next();
