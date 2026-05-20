@@ -1,13 +1,26 @@
 import type { Request, Response, NextFunction } from 'express';
 import * as Sentry from '@sentry/node';
 
-export interface AppError extends Error {
-  statusCode?: number;
-  code?: string;
+/**
+ * Custom error class for operational errors (4xx, known 5xx).
+ * Thrown from route handlers via `throw new AppError('message', 400)`.
+ */
+export class AppError extends Error {
+  statusCode: number;
+  code: string;
+
+  constructor(message: string, statusCode = 500, code = 'INTERNAL_ERROR') {
+    super(message);
+    this.name = 'AppError';
+    this.statusCode = statusCode;
+    this.code = code;
+    // Fix prototype chain for instanceof checks (required when extending built-ins)
+    Object.setPrototypeOf(this, AppError.prototype);
+  }
 }
 
 export function errorHandler(
-  err: AppError,
+  err: Error & { statusCode?: number; code?: string },
   req: Request,
   res: Response,
   _next: NextFunction
@@ -15,7 +28,7 @@ export function errorHandler(
   // Always capture in Sentry
   Sentry.captureException(err, { extra: { url: req.url, method: req.method } });
 
-  const statusCode = err.statusCode ?? 500;
+  const statusCode = (err as any).statusCode ?? 500;
   const message = statusCode === 500
     ? 'Something went wrong on our end. We\'ve been notified.'
     : err.message;
@@ -25,7 +38,7 @@ export function errorHandler(
   res.status(statusCode).json({
     data: null,
     error: {
-      code: err.code ?? 'INTERNAL_ERROR',
+      code: (err as any).code ?? 'INTERNAL_ERROR',
       message,
     },
   });

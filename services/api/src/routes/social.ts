@@ -1,4 +1,4 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { supabaseAdmin } from '../lib/supabase.js';
 import { requireAuth, type AuthRequest } from '../middleware/auth.js';
@@ -77,7 +77,7 @@ router.get('/requests', requireAuth, async (req: AuthRequest, res: Response, nex
     if (error) throw error;
 
     const formattedRequests = requests.map(r => {
-      const isUserA = r.profile_a.id === userId;
+      const isUserA = (r.profile_a as any)?.id === userId;
       const otherProfile = isUserA ? r.profile_b : r.profile_a;
       const direction = r.initiated_by === userId ? 'outbound' : 'inbound';
 

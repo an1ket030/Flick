@@ -1,16 +1,13 @@
 import { Router, Request, Response } from 'express';
-import { supabase } from '../lib/supabase.js';
+import { supabaseAdmin } from '../lib/supabase.js';
 import { sendPushNotification } from '../services/firebase.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
 
-interface AuthRequest extends Request {
-  user?: { id: string };
-}
-
 // POST /api/notifications/register
 // Store token for the user
-router.post('/register', async (req: AuthRequest, res: Response) => {
+router.post('/register', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
     const { token, platform } = req.body;
@@ -19,7 +16,7 @@ router.post('/register', async (req: AuthRequest, res: Response) => {
     if (!token) return res.status(400).json({ error: 'Token is required' });
 
     // Store in Supabase
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('push_tokens')
       .upsert({ 
         user_id: userId, 
@@ -39,13 +36,13 @@ router.post('/register', async (req: AuthRequest, res: Response) => {
 
 // POST /api/notifications/test-time-capsule
 // Send a mock Time Capsule notification to the current user
-router.post('/test-time-capsule', async (req: AuthRequest, res: Response) => {
+router.post('/test-time-capsule', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
     // Look up user's tokens
-    const { data: tokens, error } = await supabase
+    const { data: tokens, error } = await supabaseAdmin
       .from('push_tokens')
       .select('token')
       .eq('user_id', userId);

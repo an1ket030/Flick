@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { requireAuth } from '../middleware/auth.js';
-import { getDailyPick, invalidateDailyPickCache, generateDailyPick, getMoodPick, getPredictions } from '../services/recommendation.js';
+import { getDailyPick, invalidateDailyPickCache, getMoodPick, getPredictions } from '../services/recommendation.js';
 import { getTimeCapsuleCopy } from '../services/gemini.js';
 import { supabaseAdmin } from '../lib/supabase.js';
 import { AppError } from '../middleware/errorHandler.js';
@@ -104,7 +104,7 @@ router.post('/daily-pick/action', requireAuth, async (req: Request, res: Respons
  * POST /api/recommendations/nightly-batch
  * Triggered by GitHub Actions to pre-generate recommendations for active users.
  */
-router.post('/nightly-batch', verifyCronSecret, async (req: Request, res: Response) => {
+router.post('/nightly-batch', verifyCronSecret, async (_req: Request, res: Response) => {
   try {
     // Simplification: just fetch all users from taste_profiles that are completed
     const { data: users, error } = await supabaseAdmin
@@ -123,7 +123,7 @@ router.post('/nightly-batch', verifyCronSecret, async (req: Request, res: Respon
     
     for (const u of users) {
       try {
-        await generateDailyPick(u.user_id, true);
+        await getDailyPick(u.user_id);
         success++;
       } catch(e) {
         console.error(`Failed to generate pick for ${u.user_id}:`, e);
@@ -268,7 +268,7 @@ router.get('/time-capsule', requireAuth, async (req: Request, res: Response, nex
     const userId = req.user!.id;
 
     // 1. Check if we already have a generated time capsule for this user
-    const { data: existing, error: errExisting } = await supabaseAdmin
+    const { data: existing } = await supabaseAdmin
       .from('time_capsule_cache')
       .select('target_year, ai_copy, generated_at, films(id, tmdb_id, title, release_year, poster_path, backdrop_path, tmdb_rating, genres, synopsis)')
       .eq('user_id', userId)
@@ -336,7 +336,7 @@ router.get('/time-capsule', requireAuth, async (req: Request, res: Response, nex
  * Sprint 3.5: Editorial Collections
  * Pulls human-curated film collections.
  */
-router.get('/collections', requireAuth, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+router.get('/collections', requireAuth, async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { data: collections, error } = await supabaseAdmin
       .from('editorial_collections')
